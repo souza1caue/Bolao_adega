@@ -1,0 +1,113 @@
+{
+  "game": {
+    "home_team": "Brasil",
+    "away_team": "Argentina",
+    "home_score": 2,
+    "away_score": 1,
+    "finished": true,
+    "history_recorded": true
+  },
+  "participants": [
+    {
+      "name": "Joao",
+      "guess_home_score": 1,
+      "guess_away_score": 1
+    }
+  ],
+  "prize_pool": 5.0,
+  "entry_fee": 5.0,
+  "history": [
+    {
+      "finished_at": "01/07/2026 21:28",
+      "game": {
+        "home_team": "Brasil",
+        "away_team": "Japão",
+        "home_score": 1,
+        "away_score": 1
+      },
+      "entry_fee": 5.0,
+      "prize_pool": 20.0,
+      "prize_per_winner": 0.0,
+      "winners": [],
+      "participants": [
+        {
+          "name": "Caue",
+          "guess_home_score": 2,
+          "guess_away_score": 0
+        },
+        {
+          "name": "Hiago",
+          "guess_home_score": 2,
+          "guess_away_score": 1
+        },
+        {
+          "name": "Silvinho",
+          "guess_home_score": 2,
+          "guess_away_score": 0
+        },
+        {
+          "name": "Miguel",
+          "guess_home_score": 0,
+          "guess_away_score": 0
+        }
+      ]
+    },
+    {
+      "finished_at": "01/07/2026 21:36",
+      "game": {
+        "home_team": "Brasil",
+        "away_team": "Noruega",
+        "home_score": 2,
+        "away_score": 0
+      },
+      "entry_fee": 5.0,
+      "prize_pool": 25.0,
+      "prize_per_winner": 12.5,
+      "winners": [
+        "Caue",
+        "Silvinho"
+      ],
+      "participants": [
+        {
+          "name": "Caue",
+          "guess_home_score": 2,
+          "guess_away_score": 0
+        },
+        {
+          "name": "Hiago",
+          "guess_home_score": 1,
+          "guess_away_score": 0
+        },
+        {
+          "name": "Silvinho",
+          "guess_home_score": 2,
+          "guess_away_score": 0
+        },
+        {
+          "name": "Miguel",
+          "guess_home_score": 0,
+          "guess_away_score": 1
+        },
+        {
+          "name": "Matheus",
+          "guess_home_score": 2,
+          "guess_away_score": 1
+        }
+      ]
+    },
+    {
+      "finished_at": "01/07/2026 21:38",
+      "game": {
+        "home_team": "Time da Casa",
+        "away_team": "Visitante",
+        "home_score": 0,
+        "away_score": 0
+      },
+      "entry_fee": 5.0,
+      "prize_pool": 0.0,
+      "prize_per_winner": 0.0,
+      "winners": [],
+      "participants": []
+    }
+  ]
+}

@@ -1,0 +1,1418 @@
+from __future__ import annotations
+
+import base64
+import json
+import os
+from datetime import datetime
+from html import escape
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import streamlit as st
+
+
+DATA_DIR = Path("data")
+DATA_FILE = DATA_DIR / "bolao.json"
+LOGO_FILE = Path("assets") / "emblema-adega-camisa10.png"
+ADMIN_PASSWORD = os.getenv("BOLAO_ADMIN_PASSWORD", "camisa10")
+
+DEFAULT_STATE: dict[str, Any] = {
+    "game": {
+        "home_team": "Time da Casa",
+        "away_team": "Visitante",
+        "home_score": 0,
+        "away_score": 0,
+        "finished": False,
+        "history_recorded": False,
+    },
+    "entry_fee": 0.0,
+    "participants": [],
+    "history": [],
+}
+
+
+def load_state() -> dict[str, Any]:
+    if not DATA_FILE.exists():
+        save_state(DEFAULT_STATE)
+        return json.loads(json.dumps(DEFAULT_STATE))
+
+    with DATA_FILE.open("r", encoding="utf-8") as file:
+        state = json.load(file)
+
+    state.setdefault("game", {})
+    state.setdefault("participants", [])
+    state.setdefault("entry_fee", 0.0)
+    state.setdefault("history", [])
+    for key, value in DEFAULT_STATE["game"].items():
+        state["game"].setdefault(key, value)
+    return state
+
+
+def save_state(state: dict[str, Any]) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    with DATA_FILE.open("w", encoding="utf-8") as file:
+        json.dump(state, file, ensure_ascii=False, indent=2)
+
+
+def format_currency(value: float | int) -> str:
+    formatted = f"{float(value):,.2f}"
+    return f"R$ {formatted}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def logo_markup() -> str:
+    if not LOGO_FILE.exists():
+        return '<div class="brand-logo-slot brand-logo-fallback">10</div>'
+
+    encoded_logo = base64.b64encode(LOGO_FILE.read_bytes()).decode("ascii")
+    return (
+        '<div class="brand-logo-slot">'
+        f'<img src="data:image/png;base64,{encoded_logo}" alt="Adega Camisa 10">'
+        "</div>"
+    )
+
+
+def calculate_prize_pool(state: dict[str, Any]) -> float:
+    return len(state["participants"]) * float(state.get("entry_fee", 0.0))
+
+
+def reset_game(state: dict[str, Any]) -> None:
+    state["game"] = json.loads(json.dumps(DEFAULT_STATE["game"]))
+
+
+def start_new_pool(state: dict[str, Any]) -> None:
+    state["participants"] = []
+    reset_game(state)
+
+
+def confirmation_key(name: str) -> str:
+    version = st.session_state.setdefault("_confirmation_version", 0)
+    return f"{name}_{version}"
+
+
+def reset_confirmation_widgets() -> None:
+    st.session_state["_confirmation_version"] = (
+        st.session_state.get("_confirmation_version", 0) + 1
+    )
+
+
+def exact_score_winners(state: dict[str, Any]) -> list[dict[str, Any]]:
+    game = state["game"]
+    return [
+        participant
+        for participant in state["participants"]
+        if participant["guess_home_score"] == game["home_score"]
+        and participant["guess_away_score"] == game["away_score"]
+    ]
+
+
+def prize_per_winner(state: dict[str, Any]) -> float:
+    winners = exact_score_winners(state)
+    if not winners:
+        return 0.0
+    return calculate_prize_pool(state) / len(winners)
+
+
+def build_history_record(state: dict[str, Any]) -> dict[str, Any]:
+    game = state["game"]
+    winners = exact_score_winners(state)
+    participants = json.loads(json.dumps(state["participants"]))
+
+    return {
+        "finished_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "game": {
+            "home_team": game["home_team"],
+            "away_team": game["away_team"],
+            "home_score": game["home_score"],
+            "away_score": game["away_score"],
+        },
+        "entry_fee": float(state.get("entry_fee", 0.0)),
+        "prize_pool": calculate_prize_pool(state),
+        "prize_per_winner": prize_per_winner(state),
+        "winners": [winner["name"] for winner in winners],
+        "participants": participants,
+    }
+
+
+def save_finished_game_to_history(state: dict[str, Any]) -> None:
+    if state["game"].get("history_recorded"):
+        return
+
+    state["history"].append(build_history_record(state))
+    state["game"]["history_recorded"] = True
+
+
+def guess_status(participant: dict[str, Any], game: dict[str, Any]) -> dict[str, Any]:
+    guess_home = participant["guess_home_score"]
+    guess_away = participant["guess_away_score"]
+    actual_home = game["home_score"]
+    actual_away = game["away_score"]
+    exact_score = guess_home == actual_home and guess_away == actual_away
+
+    if exact_score:
+        label = "Vencedor" if game.get("finished") else "Placar atual"
+        return {"label": label, "order": 0, "style": "exact"}
+
+    if game.get("finished"):
+        return {"label": "Sem chance", "order": 2, "style": "out"}
+
+    if guess_home >= actual_home and guess_away >= actual_away:
+        return {"label": "Ainda pode acertar", "order": 1, "style": "alive"}
+
+    return {"label": "Sem chance", "order": 2, "style": "out"}
+
+
+def participants_table(state: dict[str, Any]) -> pd.DataFrame:
+    rows = []
+    game = state["game"]
+
+    for participant in state["participants"]:
+        status = guess_status(participant, game)
+        rows.append(
+            {
+                "Participante": participant["name"],
+                "Palpite": (
+                    f'{participant["guess_home_score"]} x '
+                    f'{participant["guess_away_score"]}'
+                ),
+                "Situacao": status["label"],
+                "_order": status["order"],
+                "_style": status["style"],
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["Participante", "Palpite", "Situacao", "_order", "_style"]
+        )
+
+    table = pd.DataFrame(rows)
+    return table.sort_values(
+        by=["_order", "Participante"],
+        ascending=[True, True],
+        ignore_index=True,
+    )
+
+
+def render_scoreboard(game: dict[str, Any]) -> None:
+    st.markdown(
+        (
+            '<section class="score-shell">'
+            '<div class="score-meta">'
+            '<span class="match-label">Placar do jogo</span>'
+            "</div>"
+            '<div class="scoreboard">'
+            '<div class="team">'
+            f'<span>{escape(game["home_team"])}</span>'
+            f'<strong>{game["home_score"]}</strong>'
+            "</div>"
+            '<div class="separator">x</div>'
+            '<div class="team">'
+            f'<span>{escape(game["away_team"])}</span>'
+            f'<strong>{game["away_score"]}</strong>'
+            "</div>"
+            "</div>"
+            "</section>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_match_metrics(total_participants: int, prize_pool: float | int) -> None:
+    st.markdown(
+        (
+            '<section class="match-metrics">'
+            '<div class="metric-card">'
+            "<span>Total de participantes</span>"
+            f"<strong>{total_participants}</strong>"
+            "</div>"
+            '<div class="metric-card metric-prize">'
+            "<span>Premio acumulado</span>"
+            f"<strong>{format_currency(prize_pool)}</strong>"
+            "</div>"
+            "</section>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_final_result(state: dict[str, Any]) -> None:
+    if not state["game"].get("finished"):
+        return
+
+    winners = exact_score_winners(state)
+    prize_share = prize_per_winner(state)
+
+    if not winners:
+        st.markdown(
+            (
+                '<section class="result-panel result-empty">'
+                "<span>Partida finalizada</span>"
+                "<strong>Nao houve vencedor</strong>"
+                "<p>Nenhum participante acertou o placar final.</p>"
+                "</section>"
+            ),
+            unsafe_allow_html=True,
+        )
+        return
+
+    winner_names = ", ".join(escape(winner["name"]) for winner in winners)
+    st.markdown(
+        (
+            '<section class="result-panel result-winners">'
+            "<span>Partida finalizada</span>"
+            f"<strong>{len(winners)} vencedor(es)</strong>"
+            f"<p>{winner_names}</p>"
+            f"<em>{format_currency(prize_share)} para cada vencedor</em>"
+            "</section>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_leaderboard(table: pd.DataFrame) -> None:
+    if table.empty:
+        st.info("Nenhum participante cadastrado ainda.")
+        return
+
+    rows = []
+    for _, row in table.iterrows():
+        rows.append(
+            (
+                f'<article class="rank-row rank-{escape(row["_style"])}">'
+                '<div class="rank-person">'
+                f'<strong>{escape(row["Participante"])}</strong>'
+                f'<span>{escape(row["Situacao"])}</span>'
+                "</div>"
+                f'<div class="rank-guess">{escape(row["Palpite"])}</div>'
+                "</article>"
+            )
+        )
+
+    st.markdown(
+        f'<section class="leaderboard">{"".join(rows)}</section>',
+        unsafe_allow_html=True,
+    )
+
+
+def main_panel(state: dict[str, Any]) -> None:
+    game = state["game"]
+    ranking = participants_table(state)
+
+    score_column, rank_column = st.columns([1.12, 0.88], gap="large")
+
+    with score_column:
+        render_scoreboard(game)
+        render_match_metrics(len(state["participants"]), calculate_prize_pool(state))
+        render_final_result(state)
+
+    with rank_column:
+        st.markdown('<h2 class="section-title">Mesa do bolao</h2>', unsafe_allow_html=True)
+        render_leaderboard(ranking)
+
+
+def game_control_panel(state: dict[str, Any]) -> None:
+    game = state["game"]
+
+    st.markdown('<h2 class="section-title">Controle da partida</h2>', unsafe_allow_html=True)
+    with st.form("game_form"):
+        team_col_1, team_col_2 = st.columns(2)
+        with team_col_1:
+            home_team = st.text_input("Time da casa", value=game["home_team"])
+        with team_col_2:
+            away_team = st.text_input("Time visitante", value=game["away_team"])
+
+        score_col_1, score_col_2 = st.columns(2)
+        with score_col_1:
+            home_score = st.number_input(
+                "Gols casa",
+                min_value=0,
+                max_value=99,
+                value=int(game["home_score"]),
+                step=1,
+            )
+        with score_col_2:
+            away_score = st.number_input(
+                "Gols visitante",
+                min_value=0,
+                max_value=99,
+                value=int(game["away_score"]),
+                step=1,
+            )
+
+        st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
+        checked_score = st.checkbox(
+            "Conferi os times e o placar final.",
+            key=confirmation_key("confirm_score_checked"),
+        )
+        checked_finish = st.checkbox(
+            "Confirmo que desejo finalizar esta partida.",
+            key=confirmation_key("confirm_finish_checked"),
+        )
+
+        save_col, finish_col = st.columns(2)
+        save_clicked = save_col.form_submit_button("Salvar jogo", type="primary")
+        finish_clicked = finish_col.form_submit_button("Finalizar partida")
+
+        if save_clicked or finish_clicked:
+            if finish_clicked and not (checked_score and checked_finish):
+                st.warning("Marque as duas confirmacoes antes de finalizar a partida.")
+                return
+
+            game.update(
+                {
+                    "home_team": home_team.strip() or "Time da Casa",
+                    "away_team": away_team.strip() or "Visitante",
+                    "home_score": int(home_score),
+                    "away_score": int(away_score),
+                }
+            )
+            if finish_clicked:
+                game["finished"] = True
+                save_finished_game_to_history(state)
+            save_state(state)
+            reset_confirmation_widgets()
+            st.success("Partida finalizada." if finish_clicked else "Jogo atualizado.")
+            st.rerun()
+
+    if game.get("finished"):
+        if st.button("Reabrir partida"):
+            reset_game(state)
+            save_state(state)
+            reset_confirmation_widgets()
+            st.rerun()
+
+    st.divider()
+    st.markdown('<h2 class="section-title">Novo bolao</h2>', unsafe_allow_html=True)
+    st.caption("Use esta opcao para comecar outra rodada e remover os participantes atuais.")
+    confirm_new_pool = st.checkbox(
+        "Confirmo que desejo apagar os participantes deste bolao.",
+        key=confirmation_key("confirm_new_pool"),
+    )
+    if st.button("Iniciar novo bolao"):
+        if not confirm_new_pool:
+            st.warning("Confirme que deseja apagar os participantes antes de iniciar um novo bolao.")
+            return
+
+        start_new_pool(state)
+        save_state(state)
+        reset_confirmation_widgets()
+        st.success("Novo bolao iniciado.")
+        st.rerun()
+
+
+def participants_panel(state: dict[str, Any]) -> None:
+    game = state["game"]
+    total_participants = len(state["participants"])
+    entry_fee = float(state.get("entry_fee", 0.0))
+    prize_pool = calculate_prize_pool(state)
+
+    st.markdown('<h2 class="section-title">Participantes</h2>', unsafe_allow_html=True)
+    metric_column_1, metric_column_2, metric_column_3 = st.columns(3)
+    metric_column_1.metric("Valor por palpite", format_currency(entry_fee))
+    metric_column_2.metric("Participantes", total_participants)
+    metric_column_3.metric("Premio acumulado", format_currency(prize_pool))
+
+    st.divider()
+    config_column, participant_column = st.columns([0.85, 1.15], gap="large")
+
+    with config_column:
+        st.markdown('<div class="admin-panel-title">Valor do palpite</div>', unsafe_allow_html=True)
+        with st.form("entry_fee_form"):
+            new_entry_fee = st.number_input(
+                "Valor por cadastro de palpite",
+                min_value=0.0,
+                value=entry_fee,
+                step=5.0,
+                format="%.2f",
+            )
+
+            if st.form_submit_button("Salvar valor", type="primary"):
+                state["entry_fee"] = float(new_entry_fee)
+                save_state(state)
+                st.success("Valor por palpite atualizado.")
+                st.rerun()
+
+    with participant_column:
+        st.markdown('<div class="admin-panel-title">Novo participante</div>', unsafe_allow_html=True)
+        with st.form("participant_form", clear_on_submit=True):
+            name = st.text_input("Nome do participante")
+            guess_col_1, guess_col_2 = st.columns(2)
+            with guess_col_1:
+                guess_home = st.number_input(
+                    f'Palpite {game["home_team"]}',
+                    min_value=0,
+                    max_value=99,
+                    value=0,
+                    step=1,
+                )
+            with guess_col_2:
+                guess_away = st.number_input(
+                    f'Palpite {game["away_team"]}',
+                    min_value=0,
+                    max_value=99,
+                    value=0,
+                    step=1,
+                )
+
+            if st.form_submit_button("Adicionar participante"):
+                participant_name = name.strip()
+                if not participant_name:
+                    st.warning("Informe o nome do participante.")
+                elif any(
+                    item["name"].lower() == participant_name.lower()
+                    for item in state["participants"]
+                ):
+                    st.warning("Ja existe um participante com esse nome.")
+                else:
+                    state["participants"].append(
+                        {
+                            "name": participant_name,
+                            "guess_home_score": int(guess_home),
+                            "guess_away_score": int(guess_away),
+                        }
+                    )
+                    save_state(state)
+                    st.success("Participante cadastrado.")
+                    st.rerun()
+
+    st.divider()
+    st.markdown('<h2 class="section-title">Participantes cadastrados</h2>', unsafe_allow_html=True)
+    if not state["participants"]:
+        st.caption("Nenhum participante cadastrado.")
+        return
+
+    for index, participant in enumerate(state["participants"]):
+        col_name, col_guess, col_action = st.columns([2, 1, 0.8])
+        col_name.write(participant["name"])
+        col_guess.write(
+            f'{participant["guess_home_score"]} x {participant["guess_away_score"]}'
+        )
+        if col_action.button("Remover", key=f"remove_{index}"):
+            state["participants"].pop(index)
+            save_state(state)
+            st.rerun()
+
+
+def history_panel(state: dict[str, Any]) -> None:
+    st.markdown('<h2 class="section-title">Historico de boloes</h2>', unsafe_allow_html=True)
+
+    history = state.get("history", [])
+    if not history:
+        st.info("Nenhum bolao finalizado ainda.")
+        return
+
+    for record in reversed(history):
+        game = record["game"]
+        title = (
+            f'{game["home_team"]} {game["home_score"]} x '
+            f'{game["away_score"]} {game["away_team"]}'
+        )
+        winner_names = record.get("winners", [])
+        winners_text = ", ".join(escape(name) for name in winner_names) or "Nao houve vencedor"
+
+        participant_rows = []
+        for participant in record.get("participants", []):
+            is_winner = participant["name"] in winner_names
+            participant_rows.append(
+                "<tr>"
+                f"<td>{escape(participant['name'])}</td>"
+                f"<td>{participant['guess_home_score']} x {participant['guess_away_score']}</td>"
+                f"<td>{'Vencedor' if is_winner else 'Participou'}</td>"
+                "</tr>"
+            )
+
+        participants_table_html = (
+            "<table>"
+            "<thead><tr><th>Participante</th><th>Palpite</th><th>Resultado</th></tr></thead>"
+            f"<tbody>{''.join(participant_rows)}</tbody>"
+            "</table>"
+            if participant_rows
+            else "<p>Este bolao foi finalizado sem participantes.</p>"
+        )
+
+        st.markdown(
+            (
+                '<article class="history-card">'
+                '<div class="history-card-header">'
+                f"<strong>{escape(title)}</strong>"
+                f"<span>{escape(record['finished_at'])}</span>"
+                "</div>"
+                '<div class="history-card-grid">'
+                f"<div><span>Premio total</span><strong>{format_currency(record['prize_pool'])}</strong></div>"
+                f"<div><span>Vencedores</span><strong>{len(winner_names)}</strong></div>"
+                f"<div><span>Valor por vencedor</span><strong>{format_currency(record.get('prize_per_winner', 0.0))}</strong></div>"
+                "</div>"
+                '<div class="history-card-summary">'
+                f"<p><strong>Vencedores:</strong> {winners_text}</p>"
+                f"<p><strong>Valor por palpite:</strong> {format_currency(record['entry_fee'])}</p>"
+                "</div>"
+                f'<div class="history-table">{participants_table_html}</div>'
+                "</article>"
+            ),
+            unsafe_allow_html=True,
+        )
+
+
+def admin_login_panel() -> None:
+    st.markdown('<h2 class="section-title">Acesso do administrador</h2>', unsafe_allow_html=True)
+    st.caption("Entre para cadastrar jogos, participantes, placares e finalizar partidas.")
+
+    with st.form("admin_login_form"):
+        password = st.text_input("Senha do administrador", type="password")
+        login_clicked = st.form_submit_button("Entrar", type="primary")
+
+        if login_clicked:
+            if password == ADMIN_PASSWORD:
+                st.session_state["admin_authenticated"] = True
+                st.success("Acesso liberado.")
+                st.rerun()
+            else:
+                st.warning("Senha incorreta.")
+
+
+def admin_logout_panel() -> None:
+    st.markdown('<h2 class="section-title">Sessao administrativa</h2>', unsafe_allow_html=True)
+    st.caption("Use esta opcao ao terminar os cadastros ou ajustes da partida.")
+
+    if st.button("Sair do administrador"):
+        st.session_state["admin_authenticated"] = False
+        reset_confirmation_widgets()
+        st.rerun()
+
+
+def apply_styles() -> None:
+    st.markdown(
+        """
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
+
+            :root {
+                --bg: #04110b;
+                --ink: #fff8ed;
+                --muted: #c5d6bf;
+                --line: #24492f;
+                --panel: #071c11;
+                --panel-2: #0d2b19;
+                --field: #06140d;
+                --wine: #14532d;
+                --wine-dark: #06200f;
+                --green: #19a45b;
+                --green-soft: #0c351f;
+                --green-strong: #146c3b;
+                --red: #ef5f56;
+                --red-soft: #3a1718;
+                --amber: #ffd21f;
+                --amber-soft: #3f3108;
+                --blue: #1f5fd1;
+                --blue-soft: #0a1f48;
+                --grass: #0d3a22;
+                --navy: #06170e;
+                --graffiti-font: "Bangers", "Impact", "Arial Black", sans-serif;
+            }
+
+            .stApp {
+                background:
+                    radial-gradient(circle at top left, rgba(255, 210, 31, .18), transparent 28rem),
+                    radial-gradient(circle at bottom right, rgba(31, 95, 209, .16), transparent 24rem),
+                    linear-gradient(180deg, #062013 0%, var(--bg) 100%);
+                color: var(--ink);
+                font-family: var(--graffiti-font);
+            }
+
+            .stApp * {
+                font-family: var(--graffiti-font);
+                letter-spacing: .035em;
+            }
+
+            .block-container {
+                max-width: 1220px;
+                padding-bottom: 3rem;
+                padding-top: .85rem;
+            }
+
+            header[data-testid="stHeader"],
+            div[data-testid="stToolbar"] {
+                display: none;
+            }
+
+            h1 {
+                color: var(--ink);
+                font-size: 2.05rem !important;
+                font-weight: 800 !important;
+                margin-bottom: .2rem !important;
+            }
+
+            .brand-hero {
+                align-items: center;
+                background:
+                    linear-gradient(135deg, rgba(255, 210, 31, .98), rgba(26, 116, 62, .92) 58%, rgba(31, 95, 209, .80)),
+                    var(--panel);
+                border: 1px solid #d4aa13;
+                border-radius: 8px;
+                box-shadow: 0 20px 42px rgba(0, 0, 0, .38);
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: 4rem minmax(0, 1fr);
+                margin-bottom: 1.1rem;
+                overflow: hidden;
+                padding: .95rem 1.05rem;
+                position: relative;
+            }
+
+            .brand-hero::after {
+                background:
+                    linear-gradient(90deg, transparent 0 47%, rgba(255, 255, 255, .08) 47% 53%, transparent 53%),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, .045) 0 1px, transparent 1px 84px);
+                content: "";
+                inset: 0;
+                pointer-events: none;
+                position: absolute;
+            }
+
+            .brand-kicker {
+                color: #161006;
+                display: block;
+                font-size: .74rem;
+                font-weight: 900;
+                letter-spacing: .08em;
+                position: relative;
+                text-transform: uppercase;
+                z-index: 1;
+            }
+
+            .brand-title {
+                color: #100b05;
+                display: block;
+                font-size: clamp(1.65rem, 4vw, 2.45rem);
+                font-weight: 900;
+                line-height: 1;
+                margin-top: .2rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .brand-logo-slot {
+                align-items: center;
+                background: rgba(255, 255, 255, .34);
+                border: 1px solid rgba(16, 11, 5, .16);
+                border-radius: 999px;
+                color: #100b05;
+                display: flex;
+                font-size: 1.3rem;
+                font-weight: 900;
+                height: 4rem;
+                justify-content: center;
+                overflow: hidden;
+                position: relative;
+                width: 4rem;
+                z-index: 1;
+            }
+
+            .brand-logo-slot img {
+                border-radius: 999px;
+                display: block;
+                height: 100%;
+                object-fit: cover;
+                transform: scale(1.12);
+                width: 100%;
+            }
+
+            .brand-logo-fallback {
+                box-shadow: inset 0 0 0 2px rgba(16, 11, 5, .10);
+            }
+
+            .brand-copy {
+                min-width: 0;
+                position: relative;
+                z-index: 1;
+            }
+
+            .brand-subtitle {
+                color: var(--muted);
+                display: block;
+                font-size: 1rem;
+                font-weight: 700;
+                margin-top: .55rem;
+                max-width: 720px;
+                position: relative;
+                z-index: 1;
+            }
+
+            [data-testid="stCaptionContainer"] {
+                color: var(--muted);
+            }
+
+            label,
+            p,
+            span,
+            div {
+                text-shadow: none;
+            }
+
+            [data-testid="stMetric"] {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: .85rem 1rem;
+            }
+
+            [data-testid="stMetricLabel"] p {
+                color: var(--muted);
+                font-weight: 800;
+            }
+
+            [data-testid="stMetricValue"] {
+                color: var(--ink);
+            }
+
+            .stTabs [data-baseweb="tab-list"] {
+                gap: .35rem;
+                margin-top: 1.1rem;
+            }
+
+            .stTabs [data-baseweb="tab"] {
+                background: #092216;
+                border-radius: 8px 8px 0 0;
+                border: 1px solid #1a5131;
+                color: #d8e9d4;
+                font-weight: 700;
+                height: 2.75rem;
+                padding: 0 1rem;
+            }
+
+            .stTabs [aria-selected="true"] {
+                background: #3f3108;
+                border-color: var(--amber);
+                color: #fff3b0;
+            }
+
+            .section-title {
+                color: var(--ink);
+                font-size: 1.1rem;
+                font-weight: 800;
+                letter-spacing: .05em;
+                margin: .25rem 0 .85rem;
+            }
+
+            .score-shell,
+            .leaderboard,
+            .match-metrics,
+            div[data-testid="stForm"],
+            div[data-testid="stDataFrame"],
+            div[data-testid="stVerticalBlock"] > div:has(.admin-panel-title) {
+                border-radius: 8px;
+            }
+
+            .score-shell {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                box-shadow: 0 18px 36px rgba(0, 0, 0, .34);
+                overflow: hidden;
+            }
+
+            .score-meta,
+            .match-metrics {
+                align-items: center;
+                display: flex;
+                justify-content: space-between;
+                padding: 1rem 1.15rem;
+            }
+
+            .score-meta {
+                border-bottom: 1px solid var(--line);
+            }
+
+            .match-label {
+                color: var(--amber);
+                font-size: .85rem;
+                font-weight: 800;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+            }
+
+            .scoreboard {
+                align-items: center;
+                background:
+                    linear-gradient(90deg, transparent 0 48%, rgba(255, 255, 255, .08) 48% 52%, transparent 52%),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 72px),
+                    linear-gradient(135deg, rgba(5, 34, 18, .98), rgba(14, 94, 47, .98)),
+                    var(--navy);
+                border: 1px solid #1f6f42;
+                border-radius: 8px;
+                color: #f8fafc;
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: 1fr auto 1fr;
+                min-height: 260px;
+                padding: 1.5rem;
+            }
+
+            .team {
+                align-items: center;
+                display: flex;
+                flex-direction: column;
+                gap: .75rem;
+                min-width: 0;
+                text-align: center;
+            }
+
+            .team span {
+                color: #e4f6df;
+                font-size: 1.2rem;
+                font-weight: 700;
+                letter-spacing: .055em;
+                overflow-wrap: anywhere;
+            }
+
+            .team strong {
+                font-size: clamp(4.5rem, 9vw, 7.75rem);
+                line-height: .9;
+            }
+
+            .separator {
+                color: var(--amber);
+                font-size: 2rem;
+                font-weight: 700;
+            }
+
+            .match-metrics {
+                display: grid;
+                gap: .75rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                margin-top: .9rem;
+                padding: 0;
+            }
+
+            .metric-card {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-left: 5px solid var(--green);
+                border-radius: 8px;
+                min-height: 98px;
+                padding: 1rem;
+            }
+
+            .metric-card span,
+            .rank-person span {
+                color: var(--muted);
+                display: block;
+                font-size: .8rem;
+                font-weight: 700;
+                letter-spacing: .06em;
+            }
+
+            .metric-card strong {
+                color: var(--ink);
+                display: block;
+                font-size: clamp(1.85rem, 4vw, 2.35rem);
+                line-height: 1.1;
+                margin-top: .25rem;
+                overflow-wrap: anywhere;
+            }
+
+            .metric-card {
+                background: linear-gradient(180deg, #0d331f, #071c11);
+                border-left-color: var(--amber);
+            }
+
+            .metric-prize {
+                background: linear-gradient(180deg, #47380a, #171407);
+                border-left-color: var(--amber);
+            }
+
+            .result-panel {
+                border: 1px solid var(--line);
+                border-left: 5px solid var(--amber);
+                border-radius: 8px;
+                margin-top: .9rem;
+                padding: 1rem;
+            }
+
+            .result-panel span {
+                color: var(--muted);
+                display: block;
+                font-size: .8rem;
+                font-weight: 800;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+            }
+
+            .result-panel strong {
+                color: var(--ink);
+                display: block;
+                font-size: 1.45rem;
+                margin-top: .2rem;
+            }
+
+            .result-panel p {
+                color: #dce9df;
+                font-weight: 700;
+                margin: .35rem 0 0;
+            }
+
+            .result-panel em {
+                color: #fff1c7;
+                display: block;
+                font-style: normal;
+                font-weight: 900;
+                margin-top: .45rem;
+            }
+
+            .result-winners {
+                background: linear-gradient(180deg, #0d3d25, #071c11);
+                border-left-color: var(--amber);
+            }
+
+            .result-empty {
+                background: linear-gradient(180deg, #351919, #171012);
+                border-left-color: var(--red);
+            }
+
+            .leaderboard {
+                background: var(--panel);
+                border: 1px solid #1a5131;
+                box-shadow: 0 18px 36px rgba(0, 0, 0, .34);
+                display: flex;
+                flex-direction: column;
+                gap: .55rem;
+                padding: .75rem;
+            }
+
+            .rank-row {
+                align-items: center;
+                border: 1px solid transparent;
+                border-radius: 8px;
+                display: grid;
+                gap: .55rem .75rem;
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: auto auto;
+                min-height: 86px;
+                padding: .8rem;
+            }
+
+            .rank-exact {
+                background: linear-gradient(180deg, #1b7d45, #12502d);
+                border-color: #37c875;
+            }
+
+            .rank-alive {
+                background: linear-gradient(180deg, #103d27, #0a2819);
+                border-color: #288d55;
+            }
+
+            .rank-out {
+                background: linear-gradient(180deg, #391718, #251013);
+                border-color: #94413c;
+            }
+
+            .rank-person {
+                align-self: center;
+                min-width: 0;
+            }
+
+            .rank-person strong {
+                color: var(--ink);
+                display: block;
+                font-size: .98rem;
+                letter-spacing: .045em;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .rank-guess {
+                align-items: center;
+                background: rgba(255, 255, 255, .10);
+                border: 1px solid rgba(255, 255, 255, .12);
+                border-radius: 999px;
+                color: #ffffff;
+                display: flex;
+                font-size: .92rem;
+                font-weight: 900;
+                grid-column: 1 / 2;
+                justify-content: center;
+                letter-spacing: .06em;
+                min-height: 2rem;
+                padding: .25rem .65rem;
+                white-space: nowrap;
+            }
+
+            div[data-testid="stForm"] {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                box-shadow: 0 18px 36px rgba(0, 0, 0, .28);
+                padding: 1rem;
+            }
+
+            div[data-testid="stTextInput"] label,
+            div[data-testid="stNumberInput"] label {
+                color: var(--ink);
+                font-weight: 800;
+            }
+
+            div[data-testid="stTextInput"] input,
+            div[data-testid="stNumberInput"] input {
+                background: var(--field);
+                border: 1px solid #4a3436;
+                border-radius: 8px;
+                color: var(--ink);
+                font-size: 1.05rem;
+                font-weight: 700;
+            }
+
+            div[data-testid="stTextInput"] input::placeholder,
+            div[data-testid="stNumberInput"] input::placeholder {
+                color: #7f8e86;
+                opacity: 1;
+            }
+
+            div[data-testid="stTextInput"] input:focus,
+            div[data-testid="stNumberInput"] input:focus {
+                border-color: var(--green);
+                box-shadow: 0 0 0 1px var(--green);
+            }
+
+            div[data-testid="stNumberInput"] button {
+                background: #261719;
+                border-color: #4a3436;
+                color: #f1dfcc;
+            }
+
+            div[data-testid="stNumberInput"] button:hover,
+            div[data-testid="stNumberInput"] button:focus {
+                background: #0c351f;
+                border-color: var(--green);
+                color: #ffffff;
+            }
+
+            .admin-panel-title {
+                color: var(--ink);
+                font-size: 1rem;
+                font-weight: 800;
+                margin: 0 0 .65rem;
+            }
+
+            .stButton > button,
+            .stFormSubmitButton > button {
+                border-radius: 8px;
+                background: linear-gradient(180deg, #ffd21f, #d9a90f);
+                border-color: var(--amber);
+                color: #171006;
+                font-size: 1.05rem;
+                font-weight: 800;
+            }
+
+            .stButton > button:hover,
+            .stFormSubmitButton > button:hover,
+            .stFormSubmitButton > button[kind="primary"] {
+                background: linear-gradient(180deg, #ffe36a, #e6b717);
+                border-color: #ffe36a;
+                color: #171006;
+            }
+
+            .stButton > button:focus,
+            .stButton > button:active,
+            .stFormSubmitButton > button:focus,
+            .stFormSubmitButton > button:active {
+                color: #171006;
+            }
+
+            div[data-testid="stDataFrame"] {
+                border: 1px solid var(--line);
+                overflow: hidden;
+            }
+
+            .stAlert {
+                background: var(--panel-2);
+                color: var(--ink);
+            }
+
+            .history-card,
+            .history-card * {
+                font-family: Arial, Helvetica, sans-serif;
+                letter-spacing: 0;
+            }
+
+            .history-card {
+                background: var(--panel);
+                border: 1px solid #1a5131;
+                border-radius: 8px;
+                box-shadow: 0 18px 36px rgba(0, 0, 0, .28);
+                margin-bottom: .9rem;
+                overflow: hidden;
+            }
+
+            .history-card-header {
+                align-items: flex-start;
+                border-bottom: 1px solid var(--line);
+                display: flex;
+                gap: .75rem;
+                justify-content: space-between;
+                padding: .9rem 1rem;
+            }
+
+            .history-card-header strong {
+                color: var(--ink);
+                font-size: 1rem;
+                line-height: 1.25;
+            }
+
+            .history-card-header span {
+                color: var(--muted);
+                flex: 0 0 auto;
+                font-size: .86rem;
+                line-height: 1.25;
+            }
+
+            .history-card-grid {
+                display: grid;
+                gap: .65rem;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                padding: .9rem 1rem 0;
+            }
+
+            .history-card-grid div {
+                background: rgba(255, 210, 31, .07);
+                border: 1px solid rgba(255, 210, 31, .16);
+                border-radius: 8px;
+                padding: .75rem;
+            }
+
+            .history-card-grid span {
+                color: var(--muted);
+                display: block;
+                font-size: .78rem;
+                font-weight: 700;
+                margin-bottom: .25rem;
+            }
+
+            .history-card-grid strong {
+                color: var(--ink);
+                font-size: 1.05rem;
+            }
+
+            .history-card-summary {
+                color: var(--ink);
+                padding: .8rem 1rem 0;
+            }
+
+            .history-card-summary p {
+                color: var(--ink);
+                margin: .25rem 0;
+            }
+
+            .history-table {
+                padding: .85rem 1rem 1rem;
+            }
+
+            .history-table table {
+                border-collapse: collapse;
+                color: var(--ink);
+                width: 100%;
+            }
+
+            .history-table th,
+            .history-table td {
+                border-bottom: 1px solid var(--line);
+                font-size: .9rem;
+                padding: .55rem .45rem;
+                text-align: left;
+            }
+
+            .history-table th {
+                color: var(--muted);
+                font-weight: 800;
+            }
+
+            @media (max-width: 720px) {
+                .block-container {
+                    padding: .75rem .75rem 2rem;
+                }
+
+                .brand-hero {
+                    gap: .7rem;
+                    grid-template-columns: 3.1rem minmax(0, 1fr);
+                    margin-bottom: .75rem;
+                    padding: .75rem;
+                }
+
+                .brand-logo-slot {
+                    font-size: 1rem;
+                    height: 3.1rem;
+                    width: 3.1rem;
+                }
+
+                .brand-kicker {
+                    font-size: .62rem;
+                    line-height: 1.25;
+                }
+
+                .brand-title {
+                    font-size: 1.45rem;
+                    line-height: 1.05;
+                }
+
+                .stTabs [data-baseweb="tab-list"] {
+                    flex-wrap: nowrap;
+                    gap: .25rem;
+                    overflow-x: auto;
+                    padding-bottom: .25rem;
+                }
+
+                .stTabs [data-baseweb="tab"] {
+                    flex: 0 0 auto;
+                    height: 2.5rem;
+                    padding: 0 .75rem;
+                    white-space: nowrap;
+                }
+
+                .section-title {
+                    font-size: 1rem;
+                    margin-top: .75rem;
+                }
+
+                .score-meta {
+                    align-items: flex-start;
+                    flex-direction: column;
+                    gap: .45rem;
+                    padding: .75rem .9rem;
+                }
+
+                .scoreboard {
+                    gap: .5rem;
+                    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+                    min-height: 150px;
+                    padding: .9rem;
+                }
+
+                .team span {
+                    font-size: .92rem;
+                }
+
+                .team strong {
+                    font-size: 4rem;
+                }
+
+                .separator {
+                    font-size: 1.35rem;
+                    line-height: 1;
+                }
+
+                .match-metrics {
+                    grid-template-columns: 1fr;
+                }
+
+                .metric-card {
+                    min-height: auto;
+                    padding: .85rem;
+                }
+
+                .metric-card strong {
+                    font-size: 1.85rem;
+                }
+
+                .leaderboard {
+                    gap: .45rem;
+                    padding: .6rem;
+                }
+
+                .rank-row {
+                    grid-template-columns: minmax(0, 1fr);
+                    min-height: auto;
+                    padding: .7rem;
+                }
+
+                .rank-guess {
+                    grid-column: 1 / 2;
+                    min-height: 1.85rem;
+                }
+
+                div[data-testid="stForm"] {
+                    padding: .85rem;
+                }
+
+                .stButton > button,
+                .stFormSubmitButton > button {
+                    min-height: 2.75rem;
+                    width: 100%;
+                }
+
+                .history-card-header {
+                    flex-direction: column;
+                    gap: .25rem;
+                }
+
+                .history-card-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .history-table {
+                    overflow-x: auto;
+                }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def main() -> None:
+    st.set_page_config(
+        page_title="Bolao Adega Camisa 10",
+        page_icon="BA",
+        layout="wide",
+    )
+    apply_styles()
+
+    state = load_state()
+
+    st.markdown(
+        (
+            '<header class="brand-hero">'
+            f"{logo_markup()}"
+            '<div class="brand-copy">'
+            '<span class="brand-kicker">cerveja, futebol e resenha</span>'
+            '<span class="brand-title">Bolão Adega Camisa 10</span>'
+            "</div>"
+            "</header>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+    is_admin = st.session_state.get("admin_authenticated", False)
+
+    if is_admin:
+        main_tab, game_tab, participants_tab, history_tab, logout_tab = st.tabs(
+            [
+                "Area principal",
+                "Controle da partida",
+                "Participantes",
+                "Historico",
+                "Sair admin",
+            ]
+        )
+        with main_tab:
+            main_panel(state)
+        with game_tab:
+            game_control_panel(state)
+        with participants_tab:
+            participants_panel(state)
+        with history_tab:
+            history_panel(state)
+        with logout_tab:
+            admin_logout_panel()
+    else:
+        main_tab, history_tab, login_tab = st.tabs(
+            ["Area principal", "Historico", "Login admin"]
+        )
+        with main_tab:
+            main_panel(state)
+        with history_tab:
+            history_panel(state)
+        with login_tab:
+            admin_login_panel()
+
+
+if __name__ == "__main__":
+    main()
