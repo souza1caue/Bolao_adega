@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import urllib.error
+import urllib.request
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -15,7 +17,8 @@ import streamlit as st
 DATA_DIR = Path("data")
 DATA_FILE = DATA_DIR / "bolao.json"
 LOGO_FILE = Path("assets") / "emblema-adega-camisa10.png"
-ADMIN_PASSWORD = os.getenv("BOLAO_ADMIN_PASSWORD", "camisa10")
+SUPABASE_TABLE = "bolao_state"
+SUPABASE_RECORD_ID = "default"
 
 DEFAULT_STATE: dict[str, Any] = {
     "game": {
@@ -32,14 +35,7 @@ DEFAULT_STATE: dict[str, Any] = {
 }
 
 
-def load_state() -> dict[str, Any]:
-    if not DATA_FILE.exists():
-        save_state(DEFAULT_STATE)
-        return json.loads(json.dumps(DEFAULT_STATE))
-
-    with DATA_FILE.open("r", encoding="utf-8") as file:
-        state = json.load(file)
-
+def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
     state.setdefault("game", {})
     state.setdefault("participants", [])
     state.setdefault("entry_fee", 0.0)
@@ -49,10 +45,119 @@ def load_state() -> dict[str, Any]:
     return state
 
 
-def save_state(state: dict[str, Any]) -> None:
+def state_copy(state: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(state))
+
+
+def secret_value(name: str) -> str:
+    if os.getenv(name):
+        return os.getenv(name, "")
+
+    try:
+        return st.secrets.get(name, "")
+    except Exception:
+        return ""
+
+
+def supabase_config() -> tuple[str, str]:
+    return secret_value("SUPABASE_URL").rstrip("/"), secret_value("SUPABASE_KEY")
+
+
+def supabase_enabled() -> bool:
+    url, key = supabase_config()
+    return bool(url and key)
+
+
+def admin_password() -> str:
+    return secret_value("BOLAO_ADMIN_PASSWORD") or "camisa10"
+
+
+def supabase_request(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+    url, key = supabase_config()
+    request = urllib.request.Request(
+        f"{url}/rest/v1/{path}",
+        method=method,
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=representation",
+        },
+    )
+
+    if payload is not None:
+        request.data = json.dumps(payload).encode("utf-8")
+
+    with urllib.request.urlopen(request, timeout=12) as response:
+        body = response.read().decode("utf-8")
+        return json.loads(body) if body else None
+
+
+def load_state_from_supabase() -> dict[str, Any] | None:
+    rows = supabase_request(
+        "GET",
+        f"{SUPABASE_TABLE}?id=eq.{SUPABASE_RECORD_ID}&select=state",
+    )
+    if not rows:
+        return None
+    return normalize_state(rows[0]["state"])
+
+
+def save_state_to_supabase(state: dict[str, Any]) -> None:
+    supabase_request(
+        "POST",
+        SUPABASE_TABLE,
+        {
+            "id": SUPABASE_RECORD_ID,
+            "state": normalize_state(state_copy(state)),
+        },
+    )
+
+
+def load_state_from_file() -> dict[str, Any]:
+    if not DATA_FILE.exists():
+        return state_copy(DEFAULT_STATE)
+
+    with DATA_FILE.open("r", encoding="utf-8") as file:
+        return normalize_state(json.load(file))
+
+
+def save_state_to_file(state: dict[str, Any]) -> None:
     DATA_DIR.mkdir(exist_ok=True)
     with DATA_FILE.open("w", encoding="utf-8") as file:
-        json.dump(state, file, ensure_ascii=False, indent=2)
+        json.dump(normalize_state(state_copy(state)), file, ensure_ascii=False, indent=2)
+
+
+def load_state() -> dict[str, Any]:
+    if supabase_enabled():
+        try:
+            state = load_state_from_supabase()
+            if state is not None:
+                return state
+
+            state = normalize_state(state_copy(DEFAULT_STATE))
+            save_state_to_supabase(state)
+            return state
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
+            st.warning(f"Falha ao carregar dados do Supabase. Usando armazenamento local. Detalhe: {error}")
+
+    state = load_state_from_file()
+    if not DATA_FILE.exists():
+        save_state_to_file(state)
+    return state
+
+
+def save_state(state: dict[str, Any]) -> None:
+    state = normalize_state(state_copy(state))
+
+    if supabase_enabled():
+        try:
+            save_state_to_supabase(state)
+            return
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
+            st.warning(f"Falha ao salvar no Supabase. Salvando localmente. Detalhe: {error}")
+
+    save_state_to_file(state)
 
 
 def format_currency(value: float | int) -> str:
@@ -563,7 +668,7 @@ def admin_login_panel() -> None:
         login_clicked = st.form_submit_button("Entrar", type="primary")
 
         if login_clicked:
-            if password == ADMIN_PASSWORD:
+            if password == admin_password():
                 st.session_state["admin_authenticated"] = True
                 st.success("Acesso liberado.")
                 st.rerun()

@@ -9,6 +9,28 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Persistencia em nuvem
+
+Localmente o app usa `data/bolao.json`. Em deploy, configure Supabase nos secrets:
+
+```toml
+SUPABASE_URL = "https://SEU-PROJETO.supabase.co"
+SUPABASE_KEY = "SUA_CHAVE_COM_PERMISSAO_DE_ESCRITA"
+BOLAO_ADMIN_PASSWORD = "sua-senha"
+```
+
+Crie esta tabela no Supabase:
+
+```sql
+create table if not exists bolao_state (
+  id text primary key,
+  state jsonb not null,
+  updated_at timestamptz default now()
+);
+```
+
+O app salva todo o estado em `bolao_state`, registro `default`.
+
 ## O que ja existe
 
 - Area principal com placar do jogo, ranking e palpites.
