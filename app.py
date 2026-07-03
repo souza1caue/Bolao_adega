@@ -5,6 +5,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse, urlunparse
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -59,8 +60,24 @@ def secret_value(name: str) -> str:
         return ""
 
 
+def normalize_supabase_url(url: str) -> str:
+    url = url.strip().rstrip("/")
+    if not url:
+        return ""
+
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+
+    parsed = urlparse(url)
+    path = parsed.path.rstrip("/")
+    if path == "/rest/v1":
+        path = ""
+
+    return urlunparse((parsed.scheme, parsed.netloc, path, "", "", "")).rstrip("/")
+
+
 def supabase_config() -> tuple[str, str]:
-    return secret_value("SUPABASE_URL").rstrip("/"), secret_value("SUPABASE_KEY")
+    return normalize_supabase_url(secret_value("SUPABASE_URL")), secret_value("SUPABASE_KEY").strip()
 
 
 def supabase_enabled() -> bool:
