@@ -10,6 +10,7 @@ from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
@@ -20,6 +21,8 @@ DATA_FILE = DATA_DIR / "bolao.json"
 LOGO_FILE = Path("assets") / "emblema-adega-camisa10.png"
 SUPABASE_TABLE = "bolao_state"
 SUPABASE_RECORD_ID = "default"
+SUPABASE_POOLS_TABLE = "bolao_pools"
+SUPABASE_POOL_PARTICIPANTS_TABLE = "bolao_pool_participants"
 
 DEFAULT_STATE: dict[str, Any] = {
     "game": {
@@ -43,6 +46,10 @@ def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
     state.setdefault("history", [])
     for key, value in DEFAULT_STATE["game"].items():
         state["game"].setdefault(key, value)
+    for record in state["history"]:
+        record.setdefault("id", str(uuid4()))
+        for participant in record.get("participants", []):
+            participant.setdefault("id", str(uuid4()))
     return state
 
 
@@ -102,7 +109,7 @@ def supabase_headers(key: str) -> dict[str, str]:
     return headers
 
 
-def supabase_request(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+def supabase_request(method: str, path: str, payload: Any | None = None) -> Any:
     url, key = supabase_config()
     request = urllib.request.Request(
         f"{url}/rest/v1/{path}",
@@ -185,6 +192,154 @@ def save_state(state: dict[str, Any]) -> None:
     save_state_to_file(state)
 
 
+def supabase_error_detail(error: Exception) -> str:
+    if isinstance(error, urllib.error.HTTPError):
+        body = error.read().decode("utf-8", errors="ignore")
+        return f"HTTP {error.code}: {body or error.reason}"
+    return str(error)
+
+
+def history_supabase_error(error: Exception) -> bool:
+    return isinstance(
+        error,
+        (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError),
+    )
+
+
+def save_history_record_to_supabase(record: dict[str, Any]) -> None:
+    supabase_request(
+        "POST",
+        SUPABASE_POOLS_TABLE,
+        {
+            "id": record["id"],
+            "home_team": record["game"]["home_team"],
+            "away_team": record["game"]["away_team"],
+            "home_score": int(record["game"]["home_score"]),
+            "away_score": int(record["game"]["away_score"]),
+            "entry_fee": float(record["entry_fee"]),
+            "prize_pool": float(record["prize_pool"]),
+            "prize_per_winner": float(record.get("prize_per_winner", 0.0)),
+            "winners": record.get("winners", []),
+            "finished_at": record["finished_at"],
+        },
+    )
+
+    participant_rows = []
+    winner_names = set(record.get("winners", []))
+    for participant in record.get("participants", []):
+        participant_rows.append(
+            {
+                "id": participant.get("id", str(uuid4())),
+                "pool_id": record["id"],
+                "name": participant["name"],
+                "guess_home_score": int(participant["guess_home_score"]),
+                "guess_away_score": int(participant["guess_away_score"]),
+                "is_winner": participant["name"] in winner_names,
+            }
+        )
+
+    if participant_rows:
+        supabase_request("POST", SUPABASE_POOL_PARTICIPANTS_TABLE, participant_rows)
+
+
+def load_history_from_supabase() -> list[dict[str, Any]]:
+    pools = supabase_request(
+        "GET",
+        f"{SUPABASE_POOLS_TABLE}?select=*&order=created_at.desc",
+    )
+    if not pools:
+        return []
+
+    pool_ids = [pool["id"] for pool in pools]
+    participants = supabase_request(
+        "GET",
+        (
+            f"{SUPABASE_POOL_PARTICIPANTS_TABLE}"
+            f"?pool_id=in.({','.join(pool_ids)})&select=*"
+        ),
+    )
+
+    participants_by_pool: dict[str, list[dict[str, Any]]] = {}
+    for participant in participants or []:
+        participants_by_pool.setdefault(participant["pool_id"], []).append(
+            {
+                "id": participant.get("id", ""),
+                "name": participant["name"],
+                "guess_home_score": participant["guess_home_score"],
+                "guess_away_score": participant["guess_away_score"],
+            }
+        )
+
+    history = []
+    for pool in pools:
+        history.append(
+            {
+                "id": pool["id"],
+                "finished_at": pool["finished_at"],
+                "game": {
+                    "home_team": pool["home_team"],
+                    "away_team": pool["away_team"],
+                    "home_score": pool["home_score"],
+                    "away_score": pool["away_score"],
+                },
+                "entry_fee": float(pool.get("entry_fee", 0.0)),
+                "prize_pool": float(pool.get("prize_pool", 0.0)),
+                "prize_per_winner": float(pool.get("prize_per_winner", 0.0)),
+                "winners": pool.get("winners", []),
+                "participants": participants_by_pool.get(pool["id"], []),
+            }
+        )
+
+    return list(reversed(history))
+
+
+def load_history(state: dict[str, Any]) -> list[dict[str, Any]]:
+    if supabase_enabled():
+        try:
+            split_history = load_history_from_supabase()
+            split_history_ids = {record["id"] for record in split_history}
+            legacy_history = [
+                record
+                for record in state.get("history", [])
+                if record.get("id") not in split_history_ids
+            ]
+            return legacy_history + split_history
+        except Exception as error:
+            if history_supabase_error(error):
+                st.warning(
+                    "Falha ao carregar historico separado do Supabase. "
+                    f"Usando historico antigo. Detalhe: {supabase_error_detail(error)}"
+                )
+            else:
+                raise
+
+    return state.get("history", [])
+
+
+def delete_history_from_supabase(record_id: str) -> None:
+    supabase_request(
+        "DELETE",
+        f"{SUPABASE_POOL_PARTICIPANTS_TABLE}?pool_id=eq.{record_id}",
+    )
+    supabase_request("DELETE", f"{SUPABASE_POOLS_TABLE}?id=eq.{record_id}")
+
+
+def delete_history_record(state: dict[str, Any], record_id: str) -> None:
+    if supabase_enabled():
+        try:
+            delete_history_from_supabase(record_id)
+        except Exception as error:
+            if history_supabase_error(error):
+                st.warning(f"Falha ao apagar historico no Supabase. Detalhe: {supabase_error_detail(error)}")
+            else:
+                raise
+
+    state["history"] = [
+        record for record in state.get("history", []) if record.get("id") != record_id
+    ]
+    save_state(state)
+
+
 def format_currency(value: float | int) -> str:
     formatted = f"{float(value):,.2f}"
     return f"R$ {formatted}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -247,8 +402,11 @@ def build_history_record(state: dict[str, Any]) -> dict[str, Any]:
     game = state["game"]
     winners = exact_score_winners(state)
     participants = json.loads(json.dumps(state["participants"]))
+    for participant in participants:
+        participant.setdefault("id", str(uuid4()))
 
     return {
+        "id": str(uuid4()),
         "finished_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "game": {
             "home_team": game["home_team"],
@@ -268,7 +426,22 @@ def save_finished_game_to_history(state: dict[str, Any]) -> None:
     if state["game"].get("history_recorded"):
         return
 
-    state["history"].append(build_history_record(state))
+    record = build_history_record(state)
+    if supabase_enabled():
+        try:
+            save_history_record_to_supabase(record)
+        except Exception as error:
+            if history_supabase_error(error):
+                st.warning(
+                    "Falha ao salvar historico separado no Supabase. "
+                    f"Salvando no formato antigo. Detalhe: {supabase_error_detail(error)}"
+                )
+                state["history"].append(record)
+            else:
+                raise
+    else:
+        state["history"].append(record)
+
     state["game"]["history_recorded"] = True
 
 
@@ -624,10 +797,10 @@ def participants_panel(state: dict[str, Any]) -> None:
             st.rerun()
 
 
-def history_panel(state: dict[str, Any]) -> None:
+def history_panel(state: dict[str, Any], allow_delete: bool = False) -> None:
     st.markdown('<h2 class="section-title">Historico de boloes</h2>', unsafe_allow_html=True)
 
-    history = state.get("history", [])
+    history = load_history(state)
     if not history:
         st.info("Nenhum bolao finalizado ainda.")
         return
@@ -661,27 +834,42 @@ def history_panel(state: dict[str, Any]) -> None:
             else "<p>Este bolao foi finalizado sem participantes.</p>"
         )
 
-        st.markdown(
-            (
-                '<article class="history-card">'
-                '<div class="history-card-header">'
-                f"<strong>{escape(title)}</strong>"
-                f"<span>{escape(record['finished_at'])}</span>"
-                "</div>"
-                '<div class="history-card-grid">'
-                f"<div><span>Premio total</span><strong>{format_currency(record['prize_pool'])}</strong></div>"
-                f"<div><span>Vencedores</span><strong>{len(winner_names)}</strong></div>"
-                f"<div><span>Valor por vencedor</span><strong>{format_currency(record.get('prize_per_winner', 0.0))}</strong></div>"
-                "</div>"
-                '<div class="history-card-summary">'
-                f"<p><strong>Vencedores:</strong> {winners_text}</p>"
-                f"<p><strong>Valor por palpite:</strong> {format_currency(record['entry_fee'])}</p>"
-                "</div>"
-                f'<div class="history-table">{participants_table_html}</div>'
-                "</article>"
-            ),
-            unsafe_allow_html=True,
-        )
+        if allow_delete:
+            card_col, action_col = st.columns([0.9, 0.1], gap="small")
+        else:
+            card_col = st.container()
+            action_col = None
+
+        with card_col:
+            st.markdown(
+                (
+                    '<article class="history-card">'
+                    '<div class="history-card-header">'
+                    f"<strong>{escape(title)}</strong>"
+                    f"<span>{escape(record['finished_at'])}</span>"
+                    "</div>"
+                    '<div class="history-card-grid">'
+                    f"<div><span>Premio total</span><strong>{format_currency(record['prize_pool'])}</strong></div>"
+                    f"<div><span>Vencedores</span><strong>{len(winner_names)}</strong></div>"
+                    f"<div><span>Valor por vencedor</span><strong>{format_currency(record.get('prize_per_winner', 0.0))}</strong></div>"
+                    "</div>"
+                    '<div class="history-card-summary">'
+                    f"<p><strong>Vencedores:</strong> {winners_text}</p>"
+                    f"<p><strong>Valor por palpite:</strong> {format_currency(record['entry_fee'])}</p>"
+                    "</div>"
+                    f'<div class="history-table">{participants_table_html}</div>'
+                    "</article>"
+                ),
+                unsafe_allow_html=True,
+            )
+
+        if action_col is not None:
+            with action_col:
+                st.markdown('<div class="history-delete-spacer"></div>', unsafe_allow_html=True)
+                if st.button("Excluir", key=f"delete_history_{record['id']}", help="Apagar este historico"):
+                    delete_history_record(state, record["id"])
+                    st.success("Historico apagado.")
+                    st.rerun()
 
 
 def admin_login_panel() -> None:
@@ -1273,6 +1461,10 @@ def apply_styles() -> None:
                 overflow: hidden;
             }
 
+            .history-delete-spacer {
+                height: .25rem;
+            }
+
             .history-card-header {
                 align-items: flex-start;
                 border-bottom: 1px solid var(--line);
@@ -1529,7 +1721,7 @@ def main() -> None:
         with participants_tab:
             participants_panel(state)
         with history_tab:
-            history_panel(state)
+            history_panel(state, allow_delete=True)
         with logout_tab:
             admin_logout_panel()
     else:

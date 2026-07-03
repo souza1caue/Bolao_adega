@@ -33,7 +33,37 @@ create table if not exists bolao_state (
 );
 ```
 
-O app salva todo o estado em `bolao_state`, registro `default`.
+Crie tambem as tabelas separadas para o historico dos boloes:
+
+```sql
+create table if not exists bolao_pools (
+  id text primary key,
+  home_team text not null,
+  away_team text not null,
+  home_score integer not null,
+  away_score integer not null,
+  entry_fee numeric not null default 0,
+  prize_pool numeric not null default 0,
+  prize_per_winner numeric not null default 0,
+  winners jsonb not null default '[]'::jsonb,
+  finished_at text not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists bolao_pool_participants (
+  id text primary key,
+  pool_id text not null references bolao_pools(id) on delete cascade,
+  name text not null,
+  guess_home_score integer not null,
+  guess_away_score integer not null,
+  is_winner boolean not null default false,
+  created_at timestamptz default now()
+);
+```
+
+O app salva o jogo atual em `bolao_state`, registro `default`. Cada bolao
+finalizado vira uma linha em `bolao_pools`, e os participantes daquele bolao
+ficam em `bolao_pool_participants`.
 
 ## O que ja existe
 
