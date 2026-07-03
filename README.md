@@ -15,9 +15,13 @@ Localmente o app usa `data/bolao.json`. Em deploy, configure Supabase nos secret
 
 ```toml
 SUPABASE_URL = "https://SEU-PROJETO.supabase.co"
-SUPABASE_KEY = "SUA_CHAVE_COM_PERMISSAO_DE_ESCRITA"
+SUPABASE_KEY = "SUA_SB_SECRET_KEY_OU_LEGACY_SERVICE_ROLE_KEY"
 BOLAO_ADMIN_PASSWORD = "sua-senha"
 ```
+
+Use a chave `sb_secret_...` da area de API Keys nova do Supabase, ou a chave
+`service_role` da area legacy. Nao use a `publishable key`, pois ela nao deve
+ter permissao de escrita para salvar o bolao.
 
 Crie esta tabela no Supabase:
 

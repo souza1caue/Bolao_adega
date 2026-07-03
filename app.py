@@ -72,17 +72,25 @@ def admin_password() -> str:
     return secret_value("BOLAO_ADMIN_PASSWORD") or "camisa10"
 
 
+def supabase_headers(key: str) -> dict[str, str]:
+    headers = {
+        "apikey": key,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=representation",
+    }
+
+    if "." in key and not key.startswith("sb_"):
+        headers["Authorization"] = f"Bearer {key}"
+
+    return headers
+
+
 def supabase_request(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
     url, key = supabase_config()
     request = urllib.request.Request(
         f"{url}/rest/v1/{path}",
         method=method,
-        headers={
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=representation",
-        },
+        headers=supabase_headers(key),
     )
 
     if payload is not None:
