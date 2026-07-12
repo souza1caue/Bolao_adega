@@ -29,6 +29,7 @@ consultar o historico dos boloes finalizados.
 - Calculo automatico do premio acumulado com base no valor por palpite.
 - Historico de boloes finalizados, vencedores, participantes e valores pagos.
 - Area administrativa protegida por senha.
+- Alteracao de senha do administrador pela propria area admin.
 - Cadastro manual de times, placar e participantes.
 - Finalizacao de partida com dupla confirmacao.
 - Inicio de novo bolao removendo participantes do jogo anterior.
@@ -206,7 +207,12 @@ Apos login, o administrador acessa:
 - Controle da partida
 - Participantes
 - Historico com exclusao de registros
+- Senha admin
 - Sair admin
+
+A senha inicial vem da variavel `BOLAO_ADMIN_PASSWORD`. Depois que o
+administrador altera a senha pelo app, a nova credencial passa a ser salva no
+Supabase como hash e usada nos proximos logins.
 
 ## Deploy
 
