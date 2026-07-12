@@ -1177,6 +1177,43 @@ def apply_styles() -> None:
                 opacity: 1 !important;
             }
 
+            div[data-testid="stRadio"] div[role="radiogroup"] {
+                display: flex;
+                flex-wrap: wrap;
+                gap: .35rem;
+                margin-top: 1.1rem;
+            }
+
+            div[data-testid="stRadio"] label {
+                background: #092216;
+                border: 1px solid #1a5131;
+                border-radius: 8px 8px 0 0;
+                color: #ffffff !important;
+                min-height: 2.75rem;
+                opacity: 1 !important;
+                padding: 0 1rem;
+            }
+
+            div[data-testid="stRadio"] label:has(input[aria-checked="true"]) {
+                background: #3f3108;
+                border-color: var(--amber);
+                border-bottom-color: var(--red);
+                box-shadow: inset 0 -2px 0 var(--red);
+            }
+
+            div[data-testid="stRadio"] label > div:first-child {
+                display: none;
+            }
+
+            div[data-testid="stRadio"] label p,
+            div[data-testid="stRadio"] label span,
+            div[data-testid="stRadio"] label div {
+                color: #ffffff !important;
+                font-weight: 700;
+                opacity: 1 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
+            }
+
             .section-title {
                 color: var(--ink);
                 font-size: 1.1rem;
@@ -1772,6 +1809,20 @@ def apply_styles() -> None:
                     color: #ffffff !important;
                     opacity: 1 !important;
                     text-shadow: 0 1px 2px rgba(0, 0, 0, .65);
+                }
+
+                div[data-testid="stRadio"] div[role="radiogroup"] {
+                    flex-wrap: nowrap;
+                    gap: .25rem;
+                    overflow-x: auto;
+                    padding-bottom: .25rem;
+                }
+
+                div[data-testid="stRadio"] label {
+                    flex: 0 0 auto;
+                    min-height: 2.5rem;
+                    padding: 0 .75rem;
+                    white-space: nowrap;
                 }
 
                 .section-title {
