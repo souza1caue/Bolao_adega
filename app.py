@@ -624,14 +624,11 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
     st.markdown('<section class="admin-score-editor">', unsafe_allow_html=True)
     with st.form("admin_main_game_form"):
         st.markdown('<div class="score-meta"><span class="match-label">Placar do jogo</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="scoreboard admin-scoreboard">', unsafe_allow_html=True)
 
-        team_col_1, score_col_1, separator_col, score_col_2, team_col_2 = st.columns(
-            [1.4, 0.7, 0.25, 0.7, 1.4],
-            gap="small",
-        )
-        with team_col_1:
+        home_col, separator_col, away_col = st.columns([1, 0.18, 1], gap="small")
+        with home_col:
             home_team = st.text_input("Time da casa", value=game["home_team"])
-        with score_col_1:
             home_score = st.number_input(
                 "Gols casa",
                 min_value=0,
@@ -641,7 +638,8 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
             )
         with separator_col:
             st.markdown('<div class="admin-score-separator">x</div>', unsafe_allow_html=True)
-        with score_col_2:
+        with away_col:
+            away_team = st.text_input("Time visitante", value=game["away_team"])
             away_score = st.number_input(
                 "Gols visitante",
                 min_value=0,
@@ -649,8 +647,7 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
                 value=int(game["away_score"]),
                 step=1,
             )
-        with team_col_2:
-            away_team = st.text_input("Time visitante", value=game["away_team"])
+        st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
         checked_score = st.checkbox(
@@ -1229,11 +1226,10 @@ def apply_styles() -> None:
                 align-items: center;
                 color: var(--amber);
                 display: flex;
-                font-size: 1.35rem;
+                font-size: 2rem;
                 font-weight: 900;
                 height: 100%;
                 justify-content: center;
-                padding-top: 1.7rem;
                 text-transform: uppercase;
             }
 
@@ -1280,6 +1276,65 @@ def apply_styles() -> None:
                 color: var(--amber);
                 font-size: 2rem;
                 font-weight: 700;
+            }
+
+            .admin-scoreboard {
+                margin: 0;
+                min-height: 260px;
+            }
+
+            .admin-scoreboard [data-testid="stVerticalBlock"] {
+                gap: .6rem;
+            }
+
+            .admin-scoreboard div[data-testid="stTextInput"] label,
+            .admin-scoreboard div[data-testid="stNumberInput"] label {
+                height: 0;
+                margin: 0;
+                min-height: 0;
+                overflow: hidden;
+                visibility: hidden;
+            }
+
+            .admin-scoreboard div[data-testid="stTextInput"] input {
+                background: transparent;
+                border: 0;
+                box-shadow: none;
+                color: #e4f6df;
+                font-family: 'Bangers', Impact, sans-serif;
+                font-size: 1.2rem;
+                font-weight: 700;
+                letter-spacing: .055em;
+                min-height: auto;
+                padding: 0;
+                text-align: center;
+                text-transform: uppercase;
+            }
+
+            .admin-scoreboard div[data-testid="stNumberInput"] {
+                margin-top: .25rem;
+            }
+
+            .admin-scoreboard div[data-testid="stNumberInput"] input {
+                background: transparent;
+                border: 0;
+                box-shadow: none;
+                color: #f8fafc;
+                font-family: 'Bangers', Impact, sans-serif;
+                font-size: clamp(4.5rem, 9vw, 7.75rem);
+                font-weight: 900;
+                height: auto;
+                letter-spacing: 0;
+                line-height: .9;
+                min-height: 6rem;
+                padding: 0;
+                text-align: center;
+            }
+
+            .admin-scoreboard div[data-testid="stNumberInput"] button {
+                background: rgba(255, 255, 255, .1);
+                border-color: rgba(255, 255, 255, .14);
+                color: #ffffff;
             }
 
             .match-metrics {
@@ -1743,6 +1798,25 @@ def apply_styles() -> None:
                 .separator {
                     font-size: 1.35rem;
                     line-height: 1;
+                }
+
+                .admin-score-separator {
+                    font-size: 1.35rem;
+                    line-height: 1;
+                }
+
+                .admin-scoreboard {
+                    min-height: 150px;
+                    padding: .9rem;
+                }
+
+                .admin-scoreboard div[data-testid="stTextInput"] input {
+                    font-size: .92rem;
+                }
+
+                .admin-scoreboard div[data-testid="stNumberInput"] input {
+                    font-size: 4rem;
+                    min-height: 4.2rem;
                 }
 
                 .match-metrics {
