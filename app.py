@@ -1162,24 +1162,21 @@ def apply_styles() -> None:
                 background: #092216;
                 border-radius: 8px 8px 0 0;
                 border: 1px solid #1a5131;
-                color: #fff8ed;
+                color: #ffffff !important;
                 font-weight: 700;
                 height: 2.75rem;
                 padding: 0 1rem;
             }
 
+            .stTabs [data-baseweb="tab"] *,
             .stTabs [data-baseweb="tab"] p {
-                color: #fff8ed;
+                color: #ffffff !important;
             }
 
             .stTabs [aria-selected="true"] {
                 background: #3f3108;
                 border-color: var(--amber);
-                color: var(--amber);
-            }
-
-            .stTabs [aria-selected="true"] p {
-                color: var(--amber);
+                color: #ffffff !important;
             }
 
             .section-title {
@@ -1667,14 +1664,10 @@ def apply_styles() -> None:
                 }
 
                 .stTabs [data-baseweb="tab"],
+                .stTabs [data-baseweb="tab"] *,
                 .stTabs [data-baseweb="tab"] p {
-                    color: #fffdf5;
+                    color: #ffffff !important;
                     text-shadow: 0 1px 2px rgba(0, 0, 0, .65);
-                }
-
-                .stTabs [aria-selected="true"],
-                .stTabs [aria-selected="true"] p {
-                    color: var(--amber);
                 }
 
                 .section-title {
