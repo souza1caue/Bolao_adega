@@ -29,7 +29,7 @@ consultar o historico dos boloes finalizados.
 - Calculo automatico do premio acumulado com base no valor por palpite.
 - Historico de boloes finalizados, vencedores, participantes e valores pagos.
 - Area administrativa protegida por senha.
-- Cadastro manual de times, placar e participantes.
+- Cadastro manual de times, placar e participantes na area administrativa.
 - Finalizacao de partida com dupla confirmacao.
 - Inicio de novo bolao removendo participantes do jogo anterior.
 - Exclusao de historicos especificos apenas na area administrativa.
@@ -202,7 +202,7 @@ Usuarios comuns visualizam apenas:
 
 Apos login, o administrador acessa:
 
-- Controle da partida
+- Area principal com edicao de times, placar, finalizacao e abertura de novo bolao
 - Participantes
 - Historico com exclusao de registros
 - Sair admin

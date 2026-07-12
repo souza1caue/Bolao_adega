@@ -618,34 +618,19 @@ def render_leaderboard(table: pd.DataFrame) -> None:
     )
 
 
-def main_panel(state: dict[str, Any]) -> None:
-    game = state["game"]
-    ranking = participants_table(state)
-
-    score_column, rank_column = st.columns([1.12, 0.88], gap="large")
-
-    with score_column:
-        render_scoreboard(game)
-        render_match_metrics(len(state["participants"]), calculate_prize_pool(state))
-        render_final_result(state)
-
-    with rank_column:
-        st.markdown('<h2 class="section-title">Mesa do bolao</h2>', unsafe_allow_html=True)
-        render_leaderboard(ranking)
-
-
-def game_control_panel(state: dict[str, Any]) -> None:
+def render_admin_match_controls(state: dict[str, Any]) -> None:
     game = state["game"]
 
-    st.markdown('<h2 class="section-title">Controle da partida</h2>', unsafe_allow_html=True)
-    with st.form("game_form"):
-        team_col_1, team_col_2 = st.columns(2)
+    st.markdown('<section class="admin-score-editor">', unsafe_allow_html=True)
+    with st.form("admin_main_game_form"):
+        st.markdown('<div class="score-meta"><span class="match-label">Placar do jogo</span></div>', unsafe_allow_html=True)
+
+        team_col_1, score_col_1, separator_col, score_col_2, team_col_2 = st.columns(
+            [1.4, 0.7, 0.25, 0.7, 1.4],
+            gap="small",
+        )
         with team_col_1:
             home_team = st.text_input("Time da casa", value=game["home_team"])
-        with team_col_2:
-            away_team = st.text_input("Time visitante", value=game["away_team"])
-
-        score_col_1, score_col_2 = st.columns(2)
         with score_col_1:
             home_score = st.number_input(
                 "Gols casa",
@@ -654,6 +639,8 @@ def game_control_panel(state: dict[str, Any]) -> None:
                 value=int(game["home_score"]),
                 step=1,
             )
+        with separator_col:
+            st.markdown('<div class="admin-score-separator">x</div>', unsafe_allow_html=True)
         with score_col_2:
             away_score = st.number_input(
                 "Gols visitante",
@@ -662,6 +649,8 @@ def game_control_panel(state: dict[str, Any]) -> None:
                 value=int(game["away_score"]),
                 step=1,
             )
+        with team_col_2:
+            away_team = st.text_input("Time visitante", value=game["away_team"])
 
         st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
         checked_score = st.checkbox(
@@ -697,24 +686,18 @@ def game_control_panel(state: dict[str, Any]) -> None:
             reset_confirmation_widgets()
             st.success("Partida finalizada." if finish_clicked else "Jogo atualizado.")
             st.rerun()
+    st.markdown("</section>", unsafe_allow_html=True)
 
-    if game.get("finished"):
-        if st.button("Reabrir partida"):
-            reset_game(state)
-            save_state(state)
-            reset_confirmation_widgets()
-            st.rerun()
-
-    st.divider()
-    st.markdown('<h2 class="section-title">Novo bolao</h2>', unsafe_allow_html=True)
+    st.markdown('<section class="admin-new-pool">', unsafe_allow_html=True)
+    st.markdown('<div class="admin-panel-title">Abrir outro bolao</div>', unsafe_allow_html=True)
     st.caption("Use esta opcao para comecar outra rodada e remover os participantes atuais.")
     confirm_new_pool = st.checkbox(
         "Confirmo que desejo apagar os participantes deste bolao.",
         key=confirmation_key("confirm_new_pool"),
     )
-    if st.button("Iniciar novo bolao"):
+    if st.button("Abrir outro bolao", type="primary"):
         if not confirm_new_pool:
-            st.warning("Confirme que deseja apagar os participantes antes de iniciar um novo bolao.")
+            st.warning("Confirme que deseja apagar os participantes antes de abrir outro bolao.")
             return
 
         start_new_pool(state)
@@ -722,6 +705,26 @@ def game_control_panel(state: dict[str, Any]) -> None:
         reset_confirmation_widgets()
         st.success("Novo bolao iniciado.")
         st.rerun()
+    st.markdown("</section>", unsafe_allow_html=True)
+
+
+def main_panel(state: dict[str, Any], is_admin: bool = False) -> None:
+    game = state["game"]
+    ranking = participants_table(state)
+
+    score_column, rank_column = st.columns([1.12, 0.88], gap="large")
+
+    with score_column:
+        if is_admin:
+            render_admin_match_controls(state)
+        else:
+            render_scoreboard(game)
+        render_match_metrics(len(state["participants"]), calculate_prize_pool(state))
+        render_final_result(state)
+
+    with rank_column:
+        st.markdown('<h2 class="section-title">Mesa do bolao</h2>', unsafe_allow_html=True)
+        render_leaderboard(ranking)
 
 
 def participants_panel(state: dict[str, Any]) -> None:
@@ -924,7 +927,6 @@ def admin_area(state: dict[str, Any]) -> None:
     try:
         admin_sections = [
             "Area principal",
-            "Controle da partida",
             "Participantes",
             "Historico",
             "Sair admin",
@@ -941,9 +943,7 @@ def admin_area(state: dict[str, Any]) -> None:
         )
 
         if section == "Area principal":
-            main_panel(state)
-        elif section == "Controle da partida":
-            game_control_panel(state)
+            main_panel(state, is_admin=True)
         elif section == "Participantes":
             participants_panel(state)
         elif section == "Historico":
@@ -1222,6 +1222,18 @@ def apply_styles() -> None:
                 font-size: .85rem;
                 font-weight: 800;
                 letter-spacing: .08em;
+                text-transform: uppercase;
+            }
+
+            .admin-score-separator {
+                align-items: center;
+                color: var(--amber);
+                display: flex;
+                font-size: 1.35rem;
+                font-weight: 900;
+                height: 100%;
+                justify-content: center;
+                padding-top: 1.7rem;
                 text-transform: uppercase;
             }
 
