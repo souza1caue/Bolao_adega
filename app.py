@@ -1327,12 +1327,12 @@ def apply_styles() -> None:
                 box-shadow: none;
                 color: #f8fafc;
                 font-family: 'Bangers', Impact, sans-serif;
-                font-size: clamp(4.5rem, 9vw, 7.75rem);
+                font-size: clamp(2.4rem, 5vw, 3.6rem);
                 font-weight: 900;
                 height: auto;
                 letter-spacing: 0;
                 line-height: .9;
-                min-height: 6rem;
+                min-height: 3.25rem;
                 padding: 0;
                 text-align: center;
             }
@@ -1822,8 +1822,8 @@ def apply_styles() -> None:
                 }
 
                 div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
-                    font-size: 4rem;
-                    min-height: 4.2rem;
+                    font-size: 2.8rem;
+                    min-height: 3.1rem;
                 }
 
                 .match-metrics {
