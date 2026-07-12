@@ -48,6 +48,8 @@ def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
     state.setdefault("entry_fee", 0.0)
     state.setdefault("history", [])
     state.setdefault("admin_password_hash", "")
+    if not isinstance(state["admin_password_hash"], str):
+        state["admin_password_hash"] = ""
     for key, value in DEFAULT_STATE["game"].items():
         state["game"].setdefault(key, value)
     for record in state["history"]:
@@ -113,23 +115,27 @@ def hash_admin_password(password: str) -> str:
 
 def verify_admin_password(state: dict[str, Any], password: str) -> bool:
     stored_hash = state.get("admin_password_hash", "")
+    if not isinstance(stored_hash, str):
+        stored_hash = ""
+    password = password or ""
+
     if not stored_hash:
         return hmac.compare_digest(password, default_admin_password())
 
     try:
         algorithm, iterations, salt, password_hash = stored_hash.split("$", 3)
-    except ValueError:
+        if algorithm != "pbkdf2_sha256":
+            return False
+
+        candidate_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt),
+            int(iterations),
+        ).hex()
+    except (TypeError, ValueError, OSError):
         return False
 
-    if algorithm != "pbkdf2_sha256":
-        return False
-
-    candidate_hash = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt),
-        int(iterations),
-    ).hex()
     return hmac.compare_digest(candidate_hash, password_hash)
 
 
@@ -969,6 +975,39 @@ def admin_logout_panel() -> None:
         st.rerun()
 
 
+def admin_area(state: dict[str, Any]) -> None:
+    try:
+        main_tab, game_tab, participants_tab, history_tab, password_tab, logout_tab = st.tabs(
+            [
+                "Area principal",
+                "Controle da partida",
+                "Participantes",
+                "Historico",
+                "Senha admin",
+                "Sair admin",
+            ]
+        )
+        with main_tab:
+            main_panel(state)
+        with game_tab:
+            game_control_panel(state)
+        with participants_tab:
+            participants_panel(state)
+        with history_tab:
+            history_panel(state, allow_delete=True)
+        with password_tab:
+            admin_password_panel(state)
+        with logout_tab:
+            admin_logout_panel()
+    except Exception as error:
+        st.error(f"Falha ao carregar a area administrativa: {error}")
+        st.caption("Saia do administrador e entre novamente. Se persistir, reinicie o app.")
+        if st.button("Sair do administrador", key="admin_area_error_logout"):
+            st.session_state["admin_authenticated"] = False
+            reset_confirmation_widgets()
+            st.rerun()
+
+
 def apply_styles() -> None:
     st.markdown(
         """
@@ -1799,28 +1838,7 @@ def main() -> None:
     is_admin = st.session_state.get("admin_authenticated", False)
 
     if is_admin:
-        main_tab, game_tab, participants_tab, history_tab, password_tab, logout_tab = st.tabs(
-            [
-                "Area principal",
-                "Controle da partida",
-                "Participantes",
-                "Historico",
-                "Senha admin",
-                "Sair admin",
-            ]
-        )
-        with main_tab:
-            main_panel(state)
-        with game_tab:
-            game_control_panel(state)
-        with participants_tab:
-            participants_panel(state)
-        with history_tab:
-            history_panel(state, allow_delete=True)
-        with password_tab:
-            admin_password_panel(state)
-        with logout_tab:
-            admin_logout_panel()
+        admin_area(state)
     else:
         main_tab, history_tab, login_tab = st.tabs(
             ["Area principal", "Historico", "Login admin"]
