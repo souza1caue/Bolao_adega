@@ -1165,18 +1165,29 @@ def apply_styles() -> None:
                 color: #ffffff !important;
                 font-weight: 700;
                 height: 2.75rem;
+                opacity: 1 !important;
                 padding: 0 1rem;
             }
 
             .stTabs [data-baseweb="tab"] *,
             .stTabs [data-baseweb="tab"] p {
                 color: #ffffff !important;
+                opacity: 1 !important;
+            }
+
+            .stTabs [aria-selected="false"],
+            .stTabs [aria-selected="false"] *,
+            .stTabs [aria-selected="false"] p {
+                color: #ffffff !important;
+                opacity: 1 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
             }
 
             .stTabs [aria-selected="true"] {
                 background: #3f3108;
                 border-color: var(--amber);
                 color: #ffffff !important;
+                opacity: 1 !important;
             }
 
             .section-title {
@@ -1667,6 +1678,7 @@ def apply_styles() -> None:
                 .stTabs [data-baseweb="tab"] *,
                 .stTabs [data-baseweb="tab"] p {
                     color: #ffffff !important;
+                    opacity: 1 !important;
                     text-shadow: 0 1px 2px rgba(0, 0, 0, .65);
                 }
 
