@@ -623,8 +623,8 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
 
     st.markdown('<section class="admin-score-editor">', unsafe_allow_html=True)
     with st.form("admin_main_game_form"):
+        st.markdown('<span class="admin-scoreboard-marker"></span>', unsafe_allow_html=True)
         st.markdown('<div class="score-meta"><span class="match-label">Placar do jogo</span></div>', unsafe_allow_html=True)
-        st.markdown('<div class="scoreboard admin-scoreboard">', unsafe_allow_html=True)
 
         home_col, separator_col, away_col = st.columns([1, 0.18, 1], gap="small")
         with home_col:
@@ -647,7 +647,6 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
                 value=int(game["away_score"]),
                 step=1,
             )
-        st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
         checked_score = st.checkbox(
@@ -1228,7 +1227,7 @@ def apply_styles() -> None:
                 display: flex;
                 font-size: 2rem;
                 font-weight: 900;
-                height: 100%;
+                min-height: 8rem;
                 justify-content: center;
                 text-transform: uppercase;
             }
@@ -1278,17 +1277,24 @@ def apply_styles() -> None:
                 font-weight: 700;
             }
 
-            .admin-scoreboard {
-                margin: 0;
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) {
+                background:
+                    linear-gradient(90deg, transparent 0 48%, rgba(255, 255, 255, .08) 48% 52%, transparent 52%),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 72px),
+                    linear-gradient(135deg, rgba(5, 34, 18, .98), rgba(14, 94, 47, .98)),
+                    var(--navy) !important;
+                border: 1px solid #1f6f42 !important;
+                box-shadow: 0 18px 36px rgba(0, 0, 0, .34);
                 min-height: 260px;
+                overflow: hidden;
             }
 
-            .admin-scoreboard [data-testid="stVerticalBlock"] {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-testid="stVerticalBlock"] {
                 gap: .6rem;
             }
 
-            .admin-scoreboard div[data-testid="stTextInput"] label,
-            .admin-scoreboard div[data-testid="stNumberInput"] label {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] label,
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] label {
                 height: 0;
                 margin: 0;
                 min-height: 0;
@@ -1296,7 +1302,7 @@ def apply_styles() -> None:
                 visibility: hidden;
             }
 
-            .admin-scoreboard div[data-testid="stTextInput"] input {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
                 background: transparent;
                 border: 0;
                 box-shadow: none;
@@ -1311,11 +1317,11 @@ def apply_styles() -> None:
                 text-transform: uppercase;
             }
 
-            .admin-scoreboard div[data-testid="stNumberInput"] {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] {
                 margin-top: .25rem;
             }
 
-            .admin-scoreboard div[data-testid="stNumberInput"] input {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
                 background: transparent;
                 border: 0;
                 box-shadow: none;
@@ -1331,7 +1337,7 @@ def apply_styles() -> None:
                 text-align: center;
             }
 
-            .admin-scoreboard div[data-testid="stNumberInput"] button {
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] button {
                 background: rgba(255, 255, 255, .1);
                 border-color: rgba(255, 255, 255, .14);
                 color: #ffffff;
@@ -1803,18 +1809,19 @@ def apply_styles() -> None:
                 .admin-score-separator {
                     font-size: 1.35rem;
                     line-height: 1;
+                    min-height: 5rem;
                 }
 
-                .admin-scoreboard {
+                div[data-testid="stForm"]:has(.admin-scoreboard-marker) {
                     min-height: 150px;
                     padding: .9rem;
                 }
 
-                .admin-scoreboard div[data-testid="stTextInput"] input {
+                div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
                     font-size: .92rem;
                 }
 
-                .admin-scoreboard div[data-testid="stNumberInput"] input {
+                div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
                     font-size: 4rem;
                     min-height: 4.2rem;
                 }
