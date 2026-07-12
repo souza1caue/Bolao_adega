@@ -29,7 +29,6 @@ consultar o historico dos boloes finalizados.
 - Calculo automatico do premio acumulado com base no valor por palpite.
 - Historico de boloes finalizados, vencedores, participantes e valores pagos.
 - Area administrativa protegida por senha.
-- Alteracao de senha do administrador pela propria area admin.
 - Cadastro manual de times, placar e participantes.
 - Finalizacao de partida com dupla confirmacao.
 - Inicio de novo bolao removendo participantes do jogo anterior.
@@ -139,7 +138,7 @@ No Streamlit Cloud ou no arquivo local `.streamlit/secrets.toml`, configure:
 ```toml
 SUPABASE_URL = "https://SEU-PROJETO.supabase.co"
 SUPABASE_KEY = "SUA_SB_SECRET_KEY_OU_LEGACY_SERVICE_ROLE_KEY"
-BOLAO_ADMIN_PASSWORD = "sua-senha"
+BOLAO_ADMIN_PASSWORD = "CAMISA10MJHS"
 ```
 
 Use uma chave `sb_secret_...` da area de API Keys do Supabase ou a chave
@@ -207,12 +206,10 @@ Apos login, o administrador acessa:
 - Controle da partida
 - Participantes
 - Historico com exclusao de registros
-- Senha admin
 - Sair admin
 
-A senha inicial vem da variavel `BOLAO_ADMIN_PASSWORD`. Depois que o
-administrador altera a senha pelo app, a nova credencial passa a ser salva no
-Supabase como hash e usada nos proximos logins.
+A senha administrativa vem da variavel `BOLAO_ADMIN_PASSWORD`. Se ela nao
+estiver configurada, o app usa a senha fixa padrao `CAMISA10MJHS`.
 
 ## Deploy
 

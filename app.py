@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
 import json
 import os
 import urllib.error
@@ -38,7 +36,6 @@ DEFAULT_STATE: dict[str, Any] = {
     "entry_fee": 0.0,
     "participants": [],
     "history": [],
-    "admin_password_hash": "",
 }
 
 
@@ -47,9 +44,6 @@ def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
     state.setdefault("participants", [])
     state.setdefault("entry_fee", 0.0)
     state.setdefault("history", [])
-    state.setdefault("admin_password_hash", "")
-    if not isinstance(state["admin_password_hash"], str):
-        state["admin_password_hash"] = ""
     for key, value in DEFAULT_STATE["game"].items():
         state["game"].setdefault(key, value)
     for record in state["history"]:
@@ -98,45 +92,8 @@ def supabase_enabled() -> bool:
     return bool(url and key)
 
 
-def default_admin_password() -> str:
-    return secret_value("BOLAO_ADMIN_PASSWORD") or "camisa10"
-
-
-def hash_admin_password(password: str) -> str:
-    salt = os.urandom(16).hex()
-    password_hash = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt),
-        120_000,
-    ).hex()
-    return f"pbkdf2_sha256$120000${salt}${password_hash}"
-
-
-def verify_admin_password(state: dict[str, Any], password: str) -> bool:
-    stored_hash = state.get("admin_password_hash", "")
-    if not isinstance(stored_hash, str):
-        stored_hash = ""
-    password = password or ""
-
-    if not stored_hash:
-        return hmac.compare_digest(password, default_admin_password())
-
-    try:
-        algorithm, iterations, salt, password_hash = stored_hash.split("$", 3)
-        if algorithm != "pbkdf2_sha256":
-            return False
-
-        candidate_hash = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            bytes.fromhex(salt),
-            int(iterations),
-        ).hex()
-    except (TypeError, ValueError, OSError):
-        return False
-
-    return hmac.compare_digest(candidate_hash, password_hash)
+def admin_password() -> str:
+    return secret_value("BOLAO_ADMIN_PASSWORD") or "CAMISA10MJHS"
 
 
 def supabase_headers(key: str) -> dict[str, str]:
@@ -915,7 +872,7 @@ def history_panel(state: dict[str, Any], allow_delete: bool = False) -> None:
                     st.rerun()
 
 
-def admin_login_panel(state: dict[str, Any]) -> None:
+def admin_login_panel() -> None:
     st.markdown('<h2 class="section-title">Acesso do administrador</h2>', unsafe_allow_html=True)
     st.caption("Entre para cadastrar jogos, participantes, placares e finalizar partidas.")
 
@@ -924,45 +881,12 @@ def admin_login_panel(state: dict[str, Any]) -> None:
         login_clicked = st.form_submit_button("Entrar", type="primary")
 
         if login_clicked:
-            if verify_admin_password(state, password):
+            if password == admin_password():
                 st.session_state["admin_authenticated"] = True
                 st.success("Acesso liberado.")
                 st.rerun()
             else:
                 st.warning("Senha incorreta.")
-
-
-def admin_password_panel(state: dict[str, Any]) -> None:
-    st.markdown('<h2 class="section-title">Senha do administrador</h2>', unsafe_allow_html=True)
-    st.caption("Altere a senha usada para entrar na area administrativa.")
-
-    if st.session_state.get("admin_password_changed", False):
-        st.success("Senha alterada com sucesso.")
-        st.session_state["admin_password_changed"] = False
-
-    with st.form("admin_password_form", clear_on_submit=True):
-        current_password = st.text_input("Senha atual", type="password")
-        new_password = st.text_input("Nova senha", type="password")
-        confirm_password = st.text_input("Confirmar nova senha", type="password")
-        change_clicked = st.form_submit_button("Alterar senha", type="primary")
-
-        if change_clicked:
-            if not verify_admin_password(state, current_password):
-                st.warning("Senha atual incorreta.")
-                return
-
-            if len(new_password) < 6:
-                st.warning("A nova senha deve ter pelo menos 6 caracteres.")
-                return
-
-            if new_password != confirm_password:
-                st.warning("A confirmacao da nova senha nao confere.")
-                return
-
-            state["admin_password_hash"] = hash_admin_password(new_password)
-            save_state(state)
-            st.session_state["admin_password_changed"] = True
-            st.rerun()
 
 
 def admin_logout_panel() -> None:
@@ -977,13 +901,12 @@ def admin_logout_panel() -> None:
 
 def admin_area(state: dict[str, Any]) -> None:
     try:
-        main_tab, game_tab, participants_tab, history_tab, password_tab, logout_tab = st.tabs(
+        main_tab, game_tab, participants_tab, history_tab, logout_tab = st.tabs(
             [
                 "Area principal",
                 "Controle da partida",
                 "Participantes",
                 "Historico",
-                "Senha admin",
                 "Sair admin",
             ]
         )
@@ -995,8 +918,6 @@ def admin_area(state: dict[str, Any]) -> None:
             participants_panel(state)
         with history_tab:
             history_panel(state, allow_delete=True)
-        with password_tab:
-            admin_password_panel(state)
         with logout_tab:
             admin_logout_panel()
     except Exception as error:
@@ -1848,7 +1769,7 @@ def main() -> None:
         with history_tab:
             history_panel(state)
         with login_tab:
-            admin_login_panel(state)
+            admin_login_panel()
 
 
 if __name__ == "__main__":
