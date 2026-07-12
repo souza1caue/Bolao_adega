@@ -930,7 +930,10 @@ def admin_password_panel(state: dict[str, Any]) -> None:
     st.markdown('<h2 class="section-title">Senha do administrador</h2>', unsafe_allow_html=True)
     st.caption("Altere a senha usada para entrar na area administrativa.")
 
-    with st.form("admin_password_form"):
+    if st.session_state.pop("admin_password_changed", False):
+        st.success("Senha alterada com sucesso.")
+
+    with st.form("admin_password_form", clear_on_submit=True):
         current_password = st.text_input("Senha atual", type="password")
         new_password = st.text_input("Nova senha", type="password")
         confirm_password = st.text_input("Confirmar nova senha", type="password")
@@ -951,7 +954,7 @@ def admin_password_panel(state: dict[str, Any]) -> None:
 
             state["admin_password_hash"] = hash_admin_password(new_password)
             save_state(state)
-            st.success("Senha do administrador alterada.")
+            st.session_state["admin_password_changed"] = True
             st.rerun()
 
 
