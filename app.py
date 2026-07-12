@@ -478,6 +478,10 @@ def participants_table(state: dict[str, Any]) -> pd.DataFrame:
                     f'{participant["guess_home_score"]} x '
                     f'{participant["guess_away_score"]}'
                 ),
+                "Time casa": game["home_team"],
+                "Time visitante": game["away_team"],
+                "Gols casa": participant["guess_home_score"],
+                "Gols visitante": participant["guess_away_score"],
                 "Situacao": status["label"],
                 "_order": status["order"],
                 "_style": status["style"],
@@ -486,7 +490,17 @@ def participants_table(state: dict[str, Any]) -> pd.DataFrame:
 
     if not rows:
         return pd.DataFrame(
-            columns=["Participante", "Palpite", "Situacao", "_order", "_style"]
+            columns=[
+                "Participante",
+                "Palpite",
+                "Time casa",
+                "Time visitante",
+                "Gols casa",
+                "Gols visitante",
+                "Situacao",
+                "_order",
+                "_style",
+            ]
         )
 
     table = pd.DataFrame(rows)
@@ -587,7 +601,13 @@ def render_leaderboard(table: pd.DataFrame) -> None:
                 f'<strong>{escape(row["Participante"])}</strong>'
                 f'<span>{escape(row["Situacao"])}</span>'
                 "</div>"
-                f'<div class="rank-guess">{escape(row["Palpite"])}</div>'
+                '<div class="rank-guess">'
+                f'<span class="rank-team rank-home">{escape(row["Time casa"])}</span>'
+                '<strong>'
+                f'{int(row["Gols casa"])} x {int(row["Gols visitante"])}'
+                "</strong>"
+                f'<span class="rank-team rank-away">{escape(row["Time visitante"])}</span>'
+                "</div>"
                 "</article>"
             )
         )
@@ -1391,15 +1411,43 @@ def apply_styles() -> None:
                 border: 1px solid rgba(255, 255, 255, .12);
                 border-radius: 999px;
                 color: #ffffff;
-                display: flex;
+                display: grid;
                 font-size: .92rem;
                 font-weight: 900;
                 grid-column: 1 / 2;
-                justify-content: center;
+                grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
                 letter-spacing: .06em;
                 min-height: 2rem;
-                padding: .25rem .65rem;
+                padding: .25rem .75rem;
+            }
+
+            .rank-guess strong {
+                color: #ffffff;
+                display: block;
+                font-size: .95rem;
+                padding: 0 .65rem;
+                text-align: center;
                 white-space: nowrap;
+            }
+
+            .rank-team {
+                color: #fff8ed;
+                display: block;
+                font-size: .72rem;
+                letter-spacing: .045em;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+
+            .rank-home {
+                text-align: left;
+            }
+
+            .rank-away {
+                text-align: right;
             }
 
             div[data-testid="stForm"] {
@@ -1702,6 +1750,16 @@ def apply_styles() -> None:
                 .rank-guess {
                     grid-column: 1 / 2;
                     min-height: 1.85rem;
+                    padding: .25rem .55rem;
+                }
+
+                .rank-guess strong {
+                    font-size: .88rem;
+                    padding: 0 .45rem;
+                }
+
+                .rank-team {
+                    font-size: .64rem;
                 }
 
                 div[data-testid="stForm"] {
