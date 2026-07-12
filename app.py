@@ -93,7 +93,7 @@ def supabase_enabled() -> bool:
 
 
 def admin_password() -> str:
-    return secret_value("BOLAO_ADMIN_PASSWORD") or "CAMISA10MJHS"
+    return secret_value("BOLAO_ADMIN_PASSWORD") or "camisa10mjhs"
 
 
 def supabase_headers(key: str) -> dict[str, str]:
@@ -1819,13 +1819,9 @@ def main() -> None:
     if is_admin:
         admin_area(state)
     else:
-        main_tab, history_tab, login_tab = st.tabs(
-            ["Area principal", "Historico", "Login admin"]
-        )
+        main_tab, login_tab = st.tabs(["Area principal", "Login admin"])
         with main_tab:
             main_panel(state)
-        with history_tab:
-            history_panel(state)
         with login_tab:
             admin_login_panel()
 

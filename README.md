@@ -198,7 +198,6 @@ total de participantes x valor por palpite
 Usuarios comuns visualizam apenas:
 
 - Area principal
-- Historico
 - Login admin
 
 Apos login, o administrador acessa:
