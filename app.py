@@ -903,6 +903,7 @@ def admin_login_panel() -> None:
         if login_clicked:
             if password == admin_password():
                 st.session_state["admin_authenticated"] = True
+                st.session_state["admin_section"] = "Area principal"
                 st.success("Acesso liberado.")
                 st.rerun()
             else:
@@ -921,24 +922,33 @@ def admin_logout_panel() -> None:
 
 def admin_area(state: dict[str, Any]) -> None:
     try:
-        main_tab, game_tab, participants_tab, history_tab, logout_tab = st.tabs(
-            [
-                "Area principal",
-                "Controle da partida",
-                "Participantes",
-                "Historico",
-                "Sair admin",
-            ]
+        admin_sections = [
+            "Area principal",
+            "Controle da partida",
+            "Participantes",
+            "Historico",
+            "Sair admin",
+        ]
+        if st.session_state.get("admin_section") not in admin_sections:
+            st.session_state["admin_section"] = "Area principal"
+
+        section = st.radio(
+            "Area administrativa",
+            admin_sections,
+            horizontal=True,
+            key="admin_section",
+            label_visibility="collapsed",
         )
-        with main_tab:
+
+        if section == "Area principal":
             main_panel(state)
-        with game_tab:
+        elif section == "Controle da partida":
             game_control_panel(state)
-        with participants_tab:
+        elif section == "Participantes":
             participants_panel(state)
-        with history_tab:
+        elif section == "Historico":
             history_panel(state, allow_delete=True)
-        with logout_tab:
+        elif section == "Sair admin":
             admin_logout_panel()
     except Exception as error:
         st.error(f"Falha ao carregar a area administrativa: {error}")
