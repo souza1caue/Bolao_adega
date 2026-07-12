@@ -853,38 +853,35 @@ def history_panel(state: dict[str, Any], allow_delete: bool = False) -> None:
             else "<p>Este bolao foi finalizado sem participantes.</p>"
         )
 
+        header = f"{title} - {record['finished_at']}"
         if allow_delete:
-            card_col, action_col = st.columns([0.9, 0.1], gap="small")
+            expander_col, action_col = st.columns([0.9, 0.1], gap="small")
         else:
-            card_col = st.container()
+            expander_col = st.container()
             action_col = None
 
-        with card_col:
-            st.markdown(
-                (
-                    '<article class="history-card">'
-                    '<div class="history-card-header">'
-                    f"<strong>{escape(title)}</strong>"
-                    f"<span>{escape(record['finished_at'])}</span>"
-                    "</div>"
-                    '<div class="history-card-grid">'
-                    f"<div><span>Premio total</span><strong>{format_currency(record['prize_pool'])}</strong></div>"
-                    f"<div><span>Vencedores</span><strong>{len(winner_names)}</strong></div>"
-                    f"<div><span>Valor por vencedor</span><strong>{format_currency(record.get('prize_per_winner', 0.0))}</strong></div>"
-                    "</div>"
-                    '<div class="history-card-summary">'
-                    f"<p><strong>Vencedores:</strong> {winners_text}</p>"
-                    f"<p><strong>Valor por palpite:</strong> {format_currency(record['entry_fee'])}</p>"
-                    "</div>"
-                    f'<div class="history-table">{participants_table_html}</div>'
-                    "</article>"
-                ),
-                unsafe_allow_html=True,
-            )
+        with expander_col:
+            with st.expander(header):
+                st.markdown(
+                    (
+                        '<article class="history-card history-card-open">'
+                        '<div class="history-card-grid">'
+                        f"<div><span>Premio total</span><strong>{format_currency(record['prize_pool'])}</strong></div>"
+                        f"<div><span>Vencedores</span><strong>{len(winner_names)}</strong></div>"
+                        f"<div><span>Valor por vencedor</span><strong>{format_currency(record.get('prize_per_winner', 0.0))}</strong></div>"
+                        "</div>"
+                        '<div class="history-card-summary">'
+                        f"<p><strong>Vencedores:</strong> {winners_text}</p>"
+                        f"<p><strong>Valor por palpite:</strong> {format_currency(record['entry_fee'])}</p>"
+                        "</div>"
+                        f'<div class="history-table">{participants_table_html}</div>'
+                        "</article>"
+                    ),
+                    unsafe_allow_html=True,
+                )
 
         if action_col is not None:
             with action_col:
-                st.markdown('<div class="history-delete-spacer"></div>', unsafe_allow_html=True)
                 if st.button("Excluir", key=f"delete_history_{record['id']}", help="Apagar este historico"):
                     delete_history_record(state, record["id"])
                     st.success("Historico apagado.")
@@ -1675,8 +1672,32 @@ def apply_styles() -> None:
                 overflow: hidden;
             }
 
-            .history-delete-spacer {
-                height: .25rem;
+            div[data-testid="stExpander"] {
+                background: var(--panel);
+                border: 1px solid #1a5131;
+                border-radius: 8px;
+                box-shadow: 0 12px 28px rgba(0, 0, 0, .22);
+                margin-bottom: .75rem;
+                overflow: hidden;
+            }
+
+            div[data-testid="stExpander"] details {
+                border: 0;
+            }
+
+            div[data-testid="stExpander"] summary {
+                color: var(--ink);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 1rem;
+                font-weight: 800;
+                letter-spacing: 0;
+                min-height: 3.25rem;
+            }
+
+            .history-card-open {
+                border: 0;
+                box-shadow: none;
+                margin-bottom: 0;
             }
 
             .history-card-header {
