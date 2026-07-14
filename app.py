@@ -394,16 +394,38 @@ def reset_confirmation_widgets() -> None:
     )
 
 
-def sync_admin_game_widgets(state: dict[str, Any]) -> None:
-    game = state["game"]
-    game.update(
-        {
-            "home_team": st.session_state.get("admin_home_team", "").strip() or "Time da Casa",
-            "away_team": st.session_state.get("admin_away_team", "").strip() or "Visitante",
-            "home_score": int(st.session_state.get("admin_home_score", 0)),
-            "away_score": int(st.session_state.get("admin_away_score", 0)),
-        }
+def admin_game_widgets_ready() -> bool:
+    return all(
+        key in st.session_state
+        for key in (
+            "admin_home_team",
+            "admin_away_team",
+            "admin_home_score",
+            "admin_away_score",
+        )
     )
+
+
+def admin_game_widget_values() -> dict[str, Any]:
+    return {
+        "home_team": st.session_state.get("admin_home_team", "").strip() or "Time da Casa",
+        "away_team": st.session_state.get("admin_away_team", "").strip() or "Visitante",
+        "home_score": int(st.session_state.get("admin_home_score", 0)),
+        "away_score": int(st.session_state.get("admin_away_score", 0)),
+    }
+
+
+def sync_admin_game_widgets(state: dict[str, Any]) -> bool:
+    if not admin_game_widgets_ready():
+        return False
+
+    game = state["game"]
+    values = admin_game_widget_values()
+    changed = any(game[key] != values[key] for key in values)
+    if not changed:
+        return False
+
+    game.update(values)
     if game.get("finished"):
         game["finished"] = False
         game["history_recorded"] = False
@@ -414,6 +436,7 @@ def sync_admin_game_widgets(state: dict[str, Any]) -> None:
         int(game["away_score"]),
     )
     save_state(state)
+    return True
 
 
 def prepare_admin_game_widgets(game: dict[str, Any]) -> None:
@@ -993,6 +1016,11 @@ def admin_area(state: dict[str, Any]) -> None:
             key="admin_section",
             label_visibility="collapsed",
         )
+
+        previous_section = st.session_state.get("_last_admin_section")
+        if previous_section == "Area principal" and section != "Area principal":
+            sync_admin_game_widgets(state)
+        st.session_state["_last_admin_section"] = section
 
         if section == "Area principal":
             main_panel(state, is_admin=True)
