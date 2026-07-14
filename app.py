@@ -1070,6 +1070,15 @@ def apply_styles() -> None:
                 --graffiti-font: "Bangers", "Impact", "Arial Black", sans-serif;
             }
 
+            html,
+            body,
+            [data-testid="stAppViewContainer"],
+            [data-testid="stAppViewContainer"] > .main {
+                background-color: var(--bg) !important;
+                color: var(--ink) !important;
+                color-scheme: dark !important;
+            }
+
             .stApp {
                 background:
                     radial-gradient(circle at top left, rgba(255, 210, 31, .18), transparent 28rem),
@@ -1721,8 +1730,15 @@ def apply_styles() -> None:
             }
 
             .st-key-admin_score_editor [data-baseweb="input"],
-            .st-key-admin_score_editor [data-baseweb="input"] > div {
+            .st-key-admin_score_editor [data-baseweb="input"] > div,
+            .st-key-admin_score_editor [data-baseweb="base-input"],
+            .st-key-admin_score_editor [data-baseweb="base-input"] > div,
+            .st-key-admin_score_editor div[data-testid="stTextInput"] > div,
+            .st-key-admin_score_editor div[data-testid="stTextInput"] > div > div,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] > div,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] > div > div {
                 background: rgba(2, 18, 11, .76) !important;
+                background-color: rgba(2, 18, 11, .76) !important;
                 border: 1px solid rgba(255, 255, 255, .12) !important;
                 border-radius: 8px !important;
                 box-shadow: none !important;
@@ -1740,6 +1756,30 @@ def apply_styles() -> None:
                 caret-color: var(--amber);
                 color: #f8fafc !important;
                 color-scheme: dark;
+            }
+
+            .st-key-admin_score_editor div[data-testid="stTextInput"] input,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] input {
+                -webkit-text-fill-color: #f8fafc !important;
+                background-color: rgba(2, 18, 11, .76) !important;
+                color: #f8fafc !important;
+                opacity: 1 !important;
+            }
+
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] button,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] button:hover,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] button:focus {
+                -webkit-text-fill-color: #ffffff !important;
+                background: #123d26 !important;
+                border-color: #346c4b !important;
+                color: #ffffff !important;
+                opacity: 1 !important;
+            }
+
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] button svg {
+                fill: #ffffff !important;
+                color: #ffffff !important;
+                stroke: #ffffff !important;
             }
 
             div[data-testid="stTextInput"] input::placeholder,
@@ -1808,6 +1848,40 @@ def apply_styles() -> None:
             .stFormSubmitButton > button:active {
                 -webkit-text-fill-color: #171006;
                 color: #171006 !important;
+            }
+
+            div[data-testid="stCheckbox"] label,
+            div[data-testid="stCheckbox"] label p,
+            div[data-testid="stCheckbox"] label span {
+                color: var(--ink) !important;
+                opacity: 1 !important;
+            }
+
+            div[data-testid="stCheckbox"] [data-baseweb="checkbox"] > div {
+                background-color: var(--field) !important;
+                border-color: #6b8171 !important;
+                color: #171006 !important;
+            }
+
+            div[data-testid="stCheckbox"] input:checked + div,
+            div[data-testid="stCheckbox"] [aria-checked="true"] > div {
+                background-color: var(--amber) !important;
+                border-color: var(--amber) !important;
+            }
+
+            .stButton > button:disabled,
+            .stFormSubmitButton > button:disabled {
+                -webkit-text-fill-color: #d9dfd9 !important;
+                background: #26382d !important;
+                border-color: #536b5a !important;
+                color: #d9dfd9 !important;
+                opacity: 1 !important;
+            }
+
+            .stButton > button:disabled *,
+            .stFormSubmitButton > button:disabled * {
+                -webkit-text-fill-color: #d9dfd9 !important;
+                color: #d9dfd9 !important;
             }
 
             div[data-testid="stDataFrame"] {
