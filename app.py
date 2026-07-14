@@ -959,6 +959,7 @@ def apply_styles() -> None:
             @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
 
             :root {
+                color-scheme: dark;
                 --bg: #04110b;
                 --ink: #fff8ed;
                 --muted: #c5d6bf;
@@ -1337,10 +1338,11 @@ def apply_styles() -> None:
             }
 
             div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
-                background: transparent;
-                border: 0;
-                box-shadow: none;
-                color: #e4f6df;
+                -webkit-text-fill-color: #e4f6df;
+                background: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                color: #e4f6df !important;
                 font-family: 'Bangers', Impact, sans-serif;
                 font-size: 1.2rem;
                 font-weight: 700;
@@ -1356,10 +1358,11 @@ def apply_styles() -> None:
             }
 
             div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
-                background: transparent;
-                border: 0;
-                box-shadow: none;
-                color: #f8fafc;
+                -webkit-text-fill-color: #f8fafc;
+                background: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                color: #f8fafc !important;
                 font-family: 'Bangers', Impact, sans-serif;
                 font-size: clamp(2.4rem, 5vw, 3.6rem);
                 font-weight: 900;
@@ -1372,9 +1375,10 @@ def apply_styles() -> None:
             }
 
             div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] button {
-                background: rgba(255, 255, 255, .1);
-                border-color: rgba(255, 255, 255, .14);
-                color: #ffffff;
+                -webkit-text-fill-color: #ffffff;
+                background: rgba(255, 255, 255, .1) !important;
+                border-color: rgba(255, 255, 255, .14) !important;
+                color: #ffffff !important;
             }
 
             .match-metrics {
@@ -1582,10 +1586,11 @@ def apply_styles() -> None:
 
             div[data-testid="stTextInput"] input,
             div[data-testid="stNumberInput"] input {
-                background: var(--field);
+                -webkit-text-fill-color: var(--ink);
+                background: var(--field) !important;
                 border: 1px solid #4a3436;
                 border-radius: 8px;
-                color: var(--ink);
+                color: var(--ink) !important;
                 font-size: 1.05rem;
                 font-weight: 700;
             }
@@ -1603,16 +1608,18 @@ def apply_styles() -> None:
             }
 
             div[data-testid="stNumberInput"] button {
-                background: #261719;
-                border-color: #4a3436;
-                color: #f1dfcc;
+                -webkit-text-fill-color: #f1dfcc;
+                background: #261719 !important;
+                border-color: #4a3436 !important;
+                color: #f1dfcc !important;
             }
 
             div[data-testid="stNumberInput"] button:hover,
             div[data-testid="stNumberInput"] button:focus {
-                background: #0c351f;
-                border-color: var(--green);
-                color: #ffffff;
+                -webkit-text-fill-color: #ffffff;
+                background: #0c351f !important;
+                border-color: var(--green) !important;
+                color: #ffffff !important;
             }
 
             .admin-panel-title {
@@ -1625,26 +1632,35 @@ def apply_styles() -> None:
             .stButton > button,
             .stFormSubmitButton > button {
                 border-radius: 8px;
-                background: linear-gradient(180deg, #ffd21f, #d9a90f);
-                border-color: var(--amber);
-                color: #171006;
+                -webkit-text-fill-color: #171006;
+                background: linear-gradient(180deg, #ffd21f, #d9a90f) !important;
+                border-color: var(--amber) !important;
+                color: #171006 !important;
                 font-size: 1.05rem;
                 font-weight: 800;
+            }
+
+            .stButton > button *,
+            .stFormSubmitButton > button * {
+                -webkit-text-fill-color: #171006;
+                color: #171006 !important;
             }
 
             .stButton > button:hover,
             .stFormSubmitButton > button:hover,
             .stFormSubmitButton > button[kind="primary"] {
-                background: linear-gradient(180deg, #ffe36a, #e6b717);
-                border-color: #ffe36a;
-                color: #171006;
+                -webkit-text-fill-color: #171006;
+                background: linear-gradient(180deg, #ffe36a, #e6b717) !important;
+                border-color: #ffe36a !important;
+                color: #171006 !important;
             }
 
             .stButton > button:focus,
             .stButton > button:active,
             .stFormSubmitButton > button:focus,
             .stFormSubmitButton > button:active {
-                color: #171006;
+                -webkit-text-fill-color: #171006;
+                color: #171006 !important;
             }
 
             div[data-testid="stDataFrame"] {
@@ -1692,6 +1708,16 @@ def apply_styles() -> None:
                 font-weight: 800;
                 letter-spacing: 0;
                 min-height: 3.25rem;
+                padding-right: 2.6rem;
+            }
+
+            div[data-testid="stExpander"] summary p {
+                color: var(--ink);
+                line-height: 1.3;
+                margin: 0;
+                overflow-wrap: anywhere;
+                white-space: normal;
+                word-break: normal;
             }
 
             .history-card-open {
