@@ -15,6 +15,11 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
+
 
 DATA_DIR = Path("data")
 DATA_FILE = DATA_DIR / "bolao.json"
@@ -190,6 +195,14 @@ def save_state(state: dict[str, Any]) -> None:
             st.warning(f"Falha ao salvar no Supabase. Salvando localmente. Detalhe: {error}")
 
     save_state_to_file(state)
+
+
+def enable_public_auto_refresh() -> None:
+    if st_autorefresh is None:
+        st.caption("Atualizacao automatica indisponivel neste ambiente.")
+        return
+
+    st_autorefresh(interval=2000, key="public_live_score_refresh")
 
 
 def supabase_error_detail(error: Exception) -> str:
@@ -2166,10 +2179,19 @@ def main() -> None:
     if is_admin:
         admin_area(state)
     else:
-        main_tab, login_tab = st.tabs(["Area principal", "Login admin"])
-        with main_tab:
+        public_sections = ["Area principal", "Login admin"]
+        section = st.radio(
+            "Navegacao",
+            public_sections,
+            horizontal=True,
+            key="public_section",
+            label_visibility="collapsed",
+        )
+
+        if section == "Area principal":
+            enable_public_auto_refresh()
             main_panel(state)
-        with login_tab:
+        elif section == "Login admin":
             admin_login_panel()
 
 
