@@ -381,6 +381,45 @@ def reset_confirmation_widgets() -> None:
     )
 
 
+def sync_admin_game_widgets(state: dict[str, Any]) -> None:
+    game = state["game"]
+    game.update(
+        {
+            "home_team": st.session_state.get("admin_home_team", "").strip() or "Time da Casa",
+            "away_team": st.session_state.get("admin_away_team", "").strip() or "Visitante",
+            "home_score": int(st.session_state.get("admin_home_score", 0)),
+            "away_score": int(st.session_state.get("admin_away_score", 0)),
+        }
+    )
+    if game.get("finished"):
+        game["finished"] = False
+        game["history_recorded"] = False
+    st.session_state["_admin_game_snapshot"] = (
+        game["home_team"],
+        game["away_team"],
+        int(game["home_score"]),
+        int(game["away_score"]),
+    )
+    save_state(state)
+
+
+def prepare_admin_game_widgets(game: dict[str, Any]) -> None:
+    snapshot = (
+        game["home_team"],
+        game["away_team"],
+        int(game["home_score"]),
+        int(game["away_score"]),
+    )
+    if st.session_state.get("_admin_game_snapshot") == snapshot:
+        return
+
+    st.session_state["admin_home_team"] = game["home_team"]
+    st.session_state["admin_away_team"] = game["away_team"]
+    st.session_state["admin_home_score"] = int(game["home_score"])
+    st.session_state["admin_away_score"] = int(game["away_score"])
+    st.session_state["_admin_game_snapshot"] = snapshot
+
+
 def exact_score_winners(state: dict[str, Any]) -> list[dict[str, Any]]:
     game = state["game"]
     return [
@@ -620,32 +659,46 @@ def render_leaderboard(table: pd.DataFrame) -> None:
 
 def render_admin_match_controls(state: dict[str, Any]) -> None:
     game = state["game"]
+    prepare_admin_game_widgets(game)
 
-    st.markdown('<section class="admin-score-editor">', unsafe_allow_html=True)
-    with st.form("admin_main_game_form"):
+    with st.container(key="admin_score_editor"):
         st.markdown('<span class="admin-scoreboard-marker"></span>', unsafe_allow_html=True)
         st.markdown('<div class="score-meta"><span class="match-label">Placar do jogo</span></div>', unsafe_allow_html=True)
 
         home_col, separator_col, away_col = st.columns([1, 0.18, 1], gap="small")
         with home_col:
-            home_team = st.text_input("Time da casa", value=game["home_team"])
-            home_score = st.number_input(
+            st.text_input(
+                "Time da casa",
+                key="admin_home_team",
+                on_change=sync_admin_game_widgets,
+                args=(state,),
+            )
+            st.number_input(
                 "Gols casa",
                 min_value=0,
                 max_value=99,
-                value=int(game["home_score"]),
                 step=1,
+                key="admin_home_score",
+                on_change=sync_admin_game_widgets,
+                args=(state,),
             )
         with separator_col:
             st.markdown('<div class="admin-score-separator">x</div>', unsafe_allow_html=True)
         with away_col:
-            away_team = st.text_input("Time visitante", value=game["away_team"])
-            away_score = st.number_input(
+            st.text_input(
+                "Time visitante",
+                key="admin_away_team",
+                on_change=sync_admin_game_widgets,
+                args=(state,),
+            )
+            st.number_input(
                 "Gols visitante",
                 min_value=0,
                 max_value=99,
-                value=int(game["away_score"]),
                 step=1,
+                key="admin_away_score",
+                on_change=sync_admin_game_widgets,
+                args=(state,),
             )
 
         st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
@@ -658,31 +711,18 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
             key=confirmation_key("confirm_finish_checked"),
         )
 
-        save_col, finish_col = st.columns(2)
-        save_clicked = save_col.form_submit_button("Salvar jogo", type="primary")
-        finish_clicked = finish_col.form_submit_button("Finalizar partida")
-
-        if save_clicked or finish_clicked:
-            if finish_clicked and not (checked_score and checked_finish):
+        if st.button("Finalizar partida"):
+            if not (checked_score and checked_finish):
                 st.warning("Marque as duas confirmacoes antes de finalizar a partida.")
                 return
 
-            game.update(
-                {
-                    "home_team": home_team.strip() or "Time da Casa",
-                    "away_team": away_team.strip() or "Visitante",
-                    "home_score": int(home_score),
-                    "away_score": int(away_score),
-                }
-            )
-            if finish_clicked:
-                game["finished"] = True
-                save_finished_game_to_history(state)
+            sync_admin_game_widgets(state)
+            game["finished"] = True
+            save_finished_game_to_history(state)
             save_state(state)
             reset_confirmation_widgets()
-            st.success("Partida finalizada." if finish_clicked else "Jogo atualizado.")
+            st.success("Partida finalizada.")
             st.rerun()
-    st.markdown("</section>", unsafe_allow_html=True)
 
     st.markdown('<section class="admin-new-pool">', unsafe_allow_html=True)
     st.markdown('<div class="admin-panel-title">Abrir outro bolao</div>', unsafe_allow_html=True)
@@ -1340,7 +1380,7 @@ def apply_styles() -> None:
                 font-weight: 700;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) {
+            .st-key-admin_score_editor {
                 background:
                     linear-gradient(90deg, transparent 0 48%, rgba(255, 255, 255, .08) 48% 52%, transparent 52%),
                     repeating-linear-gradient(90deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 72px),
@@ -1352,12 +1392,12 @@ def apply_styles() -> None:
                 overflow: hidden;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-testid="stVerticalBlock"] {
+            .st-key-admin_score_editor [data-testid="stVerticalBlock"] {
                 gap: .6rem;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] label,
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] label {
+            .st-key-admin_score_editor div[data-testid="stTextInput"] label,
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] label {
                 height: 0;
                 margin: 0;
                 min-height: 0;
@@ -1365,14 +1405,14 @@ def apply_styles() -> None:
                 visibility: hidden;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"],
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"] > div {
+            .st-key-admin_score_editor [data-baseweb="input"],
+            .st-key-admin_score_editor [data-baseweb="input"] > div {
                 background: transparent !important;
                 border: 0 !important;
                 box-shadow: none !important;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
+            .st-key-admin_score_editor div[data-testid="stTextInput"] input {
                 -webkit-text-fill-color: #e4f6df;
                 background: transparent !important;
                 border: 0 !important;
@@ -1388,11 +1428,11 @@ def apply_styles() -> None:
                 text-transform: uppercase;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] {
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] {
                 margin-top: .25rem;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] input {
                 -webkit-text-fill-color: #f8fafc;
                 background: transparent !important;
                 border: 0 !important;
@@ -1409,7 +1449,7 @@ def apply_styles() -> None:
                 text-align: center;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] button {
+            .st-key-admin_score_editor div[data-testid="stNumberInput"] button {
                 -webkit-text-fill-color: #ffffff;
                 background: rgba(255, 255, 255, .1) !important;
                 border-color: rgba(255, 255, 255, .14) !important;
@@ -1639,8 +1679,8 @@ def apply_styles() -> None:
                 color: var(--ink) !important;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"],
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"] > div {
+            .st-key-admin_score_editor [data-baseweb="input"],
+            .st-key-admin_score_editor [data-baseweb="input"] > div {
                 background: rgba(2, 18, 11, .76) !important;
                 border: 1px solid rgba(255, 255, 255, .12) !important;
                 border-radius: 8px !important;
@@ -1648,7 +1688,7 @@ def apply_styles() -> None:
                 color: #f8fafc !important;
             }
 
-            div[data-testid="stForm"]:has(.admin-scoreboard-marker) input {
+            .st-key-admin_score_editor input {
                 -webkit-appearance: none !important;
                 -webkit-text-fill-color: #f8fafc !important;
                 appearance: none !important;
@@ -2016,16 +2056,16 @@ def apply_styles() -> None:
                     min-height: 5rem;
                 }
 
-                div[data-testid="stForm"]:has(.admin-scoreboard-marker) {
+                .st-key-admin_score_editor {
                     min-height: 150px;
                     padding: .9rem;
                 }
 
-                div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
+                .st-key-admin_score_editor div[data-testid="stTextInput"] input {
                     font-size: .92rem;
                 }
 
-                div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stNumberInput"] input {
+                .st-key-admin_score_editor div[data-testid="stNumberInput"] input {
                     font-size: 2.8rem;
                     min-height: 3.1rem;
                 }
