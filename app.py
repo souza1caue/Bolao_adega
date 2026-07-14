@@ -853,11 +853,11 @@ def history_panel(state: dict[str, Any], allow_delete: bool = False) -> None:
             else "<p>Este bolao foi finalizado sem participantes.</p>"
         )
 
-        header = f"{title} - {record['finished_at']}"
+        header = title
         if allow_delete:
-            expander_col, action_col = st.columns([0.9, 0.1], gap="small")
+            expander_col, date_col, action_col = st.columns([0.74, 0.16, 0.10], gap="small")
         else:
-            expander_col = st.container()
+            expander_col, date_col = st.columns([0.78, 0.22], gap="small")
             action_col = None
 
         with expander_col:
@@ -879,6 +879,12 @@ def history_panel(state: dict[str, Any], allow_delete: bool = False) -> None:
                     ),
                     unsafe_allow_html=True,
                 )
+
+        with date_col:
+            st.markdown(
+                f'<div class="history-date-chip">{escape(record["finished_at"])}</div>',
+                unsafe_allow_html=True,
+            )
 
         if action_col is not None:
             with action_col:
@@ -1200,7 +1206,29 @@ def apply_styles() -> None:
             }
 
             div[data-testid="stRadio"] label > div:first-child {
-                display: none;
+                display: none !important;
+            }
+
+            div[data-testid="stRadio"] label > div:first-child,
+            div[data-testid="stRadio"] label > div:first-child * {
+                height: 0 !important;
+                margin: 0 !important;
+                min-height: 0 !important;
+                min-width: 0 !important;
+                opacity: 0 !important;
+                padding: 0 !important;
+                width: 0 !important;
+            }
+
+            div[data-testid="stRadio"] input,
+            div[data-testid="stRadio"] svg,
+            div[data-testid="stRadio"] label [data-baseweb="radio"],
+            div[data-testid="stRadio"] label [role="radio"],
+            div[data-testid="stRadio"] label [aria-checked] {
+                display: none !important;
+                height: 0 !important;
+                opacity: 0 !important;
+                width: 0 !important;
             }
 
             div[data-testid="stRadio"] label p,
@@ -1335,6 +1363,13 @@ def apply_styles() -> None:
                 min-height: 0;
                 overflow: hidden;
                 visibility: hidden;
+            }
+
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"],
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"] > div {
+                background: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
             }
 
             div[data-testid="stForm"]:has(.admin-scoreboard-marker) div[data-testid="stTextInput"] input {
@@ -1595,6 +1630,37 @@ def apply_styles() -> None:
                 font-weight: 700;
             }
 
+            div[data-testid="stTextInput"] [data-baseweb="input"],
+            div[data-testid="stNumberInput"] [data-baseweb="input"],
+            div[data-testid="stTextInput"] [data-baseweb="input"] > div,
+            div[data-testid="stNumberInput"] [data-baseweb="input"] > div {
+                background: var(--field) !important;
+                border-color: #4a3436 !important;
+                color: var(--ink) !important;
+            }
+
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"],
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) [data-baseweb="input"] > div {
+                background: rgba(2, 18, 11, .76) !important;
+                border: 1px solid rgba(255, 255, 255, .12) !important;
+                border-radius: 8px !important;
+                box-shadow: none !important;
+                color: #f8fafc !important;
+            }
+
+            div[data-testid="stForm"]:has(.admin-scoreboard-marker) input {
+                -webkit-appearance: none !important;
+                -webkit-text-fill-color: #f8fafc !important;
+                appearance: none !important;
+                background: rgba(2, 18, 11, .76) !important;
+                border: 0 !important;
+                border-radius: 8px !important;
+                box-shadow: none !important;
+                caret-color: var(--amber);
+                color: #f8fafc !important;
+                color-scheme: dark;
+            }
+
             div[data-testid="stTextInput"] input::placeholder,
             div[data-testid="stNumberInput"] input::placeholder {
                 color: #7f8e86;
@@ -1697,6 +1763,13 @@ def apply_styles() -> None:
                 overflow: hidden;
             }
 
+            div[data-testid="stExpander"],
+            div[data-testid="stExpander"] * {
+                font-family: Arial, Helvetica, sans-serif !important;
+                letter-spacing: 0 !important;
+                text-shadow: none !important;
+            }
+
             div[data-testid="stExpander"] details {
                 border: 0;
             }
@@ -1704,18 +1777,51 @@ def apply_styles() -> None:
             div[data-testid="stExpander"] summary {
                 color: var(--ink);
                 font-family: Arial, Helvetica, sans-serif;
-                font-size: 1rem;
+                font-size: .96rem;
                 font-weight: 800;
                 letter-spacing: 0;
-                min-height: 3.25rem;
-                padding-right: 2.6rem;
+                line-height: 1.35;
+                min-height: auto;
+                padding: .9rem 3rem .9rem 1rem;
+                white-space: normal;
+            }
+
+            div[data-testid="stExpander"] summary * {
+                color: var(--ink) !important;
+                font-family: Arial, Helvetica, sans-serif !important;
+                letter-spacing: 0 !important;
+                line-height: 1.35 !important;
+                overflow-wrap: anywhere;
+                white-space: normal !important;
+                word-break: normal;
             }
 
             div[data-testid="stExpander"] summary p {
-                color: var(--ink);
+                color: var(--ink) !important;
+                font-family: Arial, Helvetica, sans-serif !important;
                 line-height: 1.3;
                 margin: 0;
                 overflow-wrap: anywhere;
+                white-space: normal;
+                word-break: normal;
+            }
+
+            .history-date-chip {
+                align-items: center;
+                background: rgba(5, 34, 18, .72);
+                border: 1px solid #1a5131;
+                border-radius: 8px;
+                color: var(--ink);
+                display: flex;
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: .88rem;
+                font-weight: 800;
+                justify-content: center;
+                line-height: 1.25;
+                margin-bottom: .75rem;
+                min-height: 3.45rem;
+                padding: .75rem .85rem;
+                text-align: center;
                 white-space: normal;
                 word-break: normal;
             }
