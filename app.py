@@ -54,6 +54,7 @@ def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
         state["game"].setdefault(key, value)
     for record in state["history"]:
         record.setdefault("id", str(uuid4()))
+        record["finished_at"] = record.get("finished_at", "").split()[0]
         for participant in record.get("participants", []):
             participant.setdefault("id", str(uuid4()))
     return state
@@ -289,7 +290,7 @@ def load_history_from_supabase() -> list[dict[str, Any]]:
         history.append(
             {
                 "id": pool["id"],
-                "finished_at": pool["finished_at"],
+                "finished_at": pool["finished_at"].split()[0],
                 "game": {
                     "home_team": pool["home_team"],
                     "away_team": pool["away_team"],
@@ -486,7 +487,7 @@ def build_history_record(state: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "id": str(uuid4()),
-        "finished_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "finished_at": datetime.now().strftime("%d/%m/%Y"),
         "game": {
             "home_team": game["home_team"],
             "away_team": game["away_team"],
