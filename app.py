@@ -997,10 +997,7 @@ def admin_logout_panel() -> None:
 
 def change_admin_section(state: dict[str, Any]) -> None:
     """Persist match edits before Streamlit removes the previous section widgets."""
-    previous_section = st.session_state.get("_last_admin_section")
-    next_section = st.session_state.get("admin_section")
-    if previous_section == "Area principal" and next_section != "Area principal":
-        sync_admin_game_widgets(state)
+    sync_admin_game_widgets(state)
 
 
 def admin_area(state: dict[str, Any]) -> None:
