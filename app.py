@@ -446,7 +446,10 @@ def prepare_admin_game_widgets(game: dict[str, Any]) -> None:
         int(game["home_score"]),
         int(game["away_score"]),
     )
-    if st.session_state.get("_admin_game_snapshot") == snapshot:
+    if (
+        admin_game_widgets_ready()
+        and st.session_state.get("_admin_game_snapshot") == snapshot
+    ):
         return
 
     st.session_state["admin_home_team"] = game["home_team"]
