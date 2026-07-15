@@ -806,17 +806,9 @@ def main_panel(state: dict[str, Any], is_admin: bool = False) -> None:
 
 def participants_panel(state: dict[str, Any]) -> None:
     game = state["game"]
-    total_participants = len(state["participants"])
     entry_fee = float(state.get("entry_fee", 0.0))
-    prize_pool = calculate_prize_pool(state)
 
     st.markdown('<h2 class="section-title">Participantes</h2>', unsafe_allow_html=True)
-    metric_column_1, metric_column_2, metric_column_3 = st.columns(3)
-    metric_column_1.metric("Valor por palpite", format_currency(entry_fee))
-    metric_column_2.metric("Participantes", total_participants)
-    metric_column_3.metric("Premio acumulado", format_currency(prize_pool))
-
-    st.divider()
     config_column, participant_column = st.columns([0.85, 1.15], gap="large")
 
     with config_column:
