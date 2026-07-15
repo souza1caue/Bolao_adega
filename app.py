@@ -498,6 +498,11 @@ def build_history_record(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def save_finished_game_to_history(state: dict[str, Any]) -> None:
+    # History must reflect the values currently visible in the admin editor,
+    # even when Streamlit has not yet propagated the last field edit.
+    sync_admin_game_widgets(state)
+    state["game"]["finished"] = True
+
     if state["game"].get("history_recorded"):
         return
 
