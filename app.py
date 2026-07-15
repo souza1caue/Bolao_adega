@@ -37,6 +37,7 @@ DEFAULT_STATE: dict[str, Any] = {
         "away_score": 0,
         "finished": False,
         "history_recorded": False,
+        "history_record_id": None,
     },
     "entry_fee": 0.0,
     "participants": [],
@@ -526,6 +527,18 @@ def save_finished_game_to_history(state: dict[str, Any]) -> None:
         state["history"].append(record)
 
     state["game"]["history_recorded"] = True
+    state["game"]["history_record_id"] = record["id"]
+
+
+def reopen_game(state: dict[str, Any]) -> None:
+    record_id = state["game"].get("history_record_id")
+    if record_id:
+        delete_history_record(state, record_id)
+
+    state["game"]["finished"] = False
+    state["game"]["history_recorded"] = False
+    state["game"]["history_record_id"] = None
+    save_state(state)
 
 
 def guess_status(participant: dict[str, Any], game: dict[str, Any]) -> dict[str, Any]:
@@ -714,6 +727,7 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
             st.text_input(
                 "Time da casa",
                 key="admin_home_team",
+                disabled=game.get("finished", False),
                 on_change=sync_admin_game_widgets,
                 args=(state,),
             )
@@ -723,6 +737,7 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
                 max_value=99,
                 step=1,
                 key="admin_home_score",
+                disabled=game.get("finished", False),
                 on_change=sync_admin_game_widgets,
                 args=(state,),
             )
@@ -732,6 +747,7 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
             st.text_input(
                 "Time visitante",
                 key="admin_away_team",
+                disabled=game.get("finished", False),
                 on_change=sync_admin_game_widgets,
                 args=(state,),
             )
@@ -741,43 +757,42 @@ def render_admin_match_controls(state: dict[str, Any]) -> None:
                 max_value=99,
                 step=1,
                 key="admin_away_score",
+                disabled=game.get("finished", False),
                 on_change=sync_admin_game_widgets,
                 args=(state,),
             )
 
         st.markdown('<div class="admin-panel-title">Finalizacao</div>', unsafe_allow_html=True)
-        checked_score = st.checkbox(
-            "Conferi os times e o placar final.",
-            key=confirmation_key("confirm_score_checked"),
-        )
-        checked_finish = st.checkbox(
-            "Confirmo que desejo finalizar esta partida.",
-            key=confirmation_key("confirm_finish_checked"),
-        )
-
-        if st.button("Finalizar partida"):
-            if not (checked_score and checked_finish):
-                st.warning("Marque as duas confirmacoes antes de finalizar a partida.")
-                return
-
-            sync_admin_game_widgets(state)
-            game["finished"] = True
-            save_finished_game_to_history(state)
-            save_state(state)
-            reset_confirmation_widgets()
-            st.success("Partida finalizada.")
-            st.rerun()
+        finish_column, reopen_column = st.columns(2, gap="small")
+        with finish_column:
+            if st.button("Finalizar partida", disabled=game.get("finished", False)):
+                sync_admin_game_widgets(state)
+                game["finished"] = True
+                save_finished_game_to_history(state)
+                save_state(state)
+                st.success("Partida finalizada.")
+                st.rerun()
+        with reopen_column:
+            if st.button("Reabrir partida", disabled=not game.get("finished", False)):
+                reopen_game(state)
+                st.success("Partida reaberta.")
+                st.rerun()
 
     st.markdown('<section class="admin-new-pool">', unsafe_allow_html=True)
-    st.markdown('<div class="admin-panel-title">Abrir outro bolao</div>', unsafe_allow_html=True)
-    st.caption("Use esta opcao para comecar outra rodada e remover os participantes atuais.")
+    st.markdown('<div class="admin-panel-title">Iniciar outro bolao</div>', unsafe_allow_html=True)
+    st.caption("Finalize a partida atual antes de iniciar outro bolao.")
     confirm_new_pool = st.checkbox(
-        "Confirmo que desejo apagar os participantes deste bolao.",
+        "Confirmo que desejo iniciar outro bolao e remover os participantes atuais.",
         key=confirmation_key("confirm_new_pool"),
+        disabled=not game.get("finished", False),
     )
-    if st.button("Abrir outro bolao", type="primary"):
+    if st.button(
+        "Iniciar outro bolao",
+        type="primary",
+        disabled=not game.get("finished", False),
+    ):
         if not confirm_new_pool:
-            st.warning("Confirme que deseja apagar os participantes antes de abrir outro bolao.")
+            st.warning("Confirme que deseja remover os participantes e iniciar outro bolao.")
             return
 
         start_new_pool(state)
