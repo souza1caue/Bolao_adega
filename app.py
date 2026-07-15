@@ -996,7 +996,7 @@ def admin_login_panel() -> None:
         if login_clicked:
             if password == admin_password():
                 st.session_state["admin_authenticated"] = True
-                st.session_state["admin_section"] = "Area principal"
+                st.session_state["admin_section"] = "Painel do Bolão"
                 st.success("Acesso liberado.")
                 st.rerun()
             else:
@@ -1021,13 +1021,13 @@ def change_admin_section(state: dict[str, Any]) -> None:
 def admin_area(state: dict[str, Any]) -> None:
     try:
         admin_sections = [
-            "Area principal",
+            "Painel do Bolão",
             "Participantes",
             "Historico",
             "Sair admin",
         ]
         if st.session_state.get("admin_section") not in admin_sections:
-            st.session_state["admin_section"] = "Area principal"
+            st.session_state["admin_section"] = "Painel do Bolão"
 
         section = st.radio(
             "Area administrativa",
@@ -1040,11 +1040,11 @@ def admin_area(state: dict[str, Any]) -> None:
         )
 
         previous_section = st.session_state.get("_last_admin_section")
-        if previous_section == "Area principal" and section != "Area principal":
+        if previous_section == "Painel do Bolão" and section != "Painel do Bolão":
             sync_admin_game_widgets(state)
         st.session_state["_last_admin_section"] = section
 
-        if section == "Area principal":
+        if section == "Painel do Bolão":
             main_panel(state, is_admin=True)
         elif section == "Participantes":
             participants_panel(state)
@@ -2303,7 +2303,7 @@ def main() -> None:
     if is_admin:
         admin_area(state)
     else:
-        public_sections = ["Area principal", "Login admin"]
+        public_sections = ["Painel do Bolão", "Login admin"]
         section = st.radio(
             "Navegacao",
             public_sections,
@@ -2312,7 +2312,7 @@ def main() -> None:
             label_visibility="collapsed",
         )
 
-        if section == "Area principal":
+        if section == "Painel do Bolão":
             enable_public_auto_refresh()
             main_panel(state)
         elif section == "Login admin":
