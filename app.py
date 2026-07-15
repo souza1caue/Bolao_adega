@@ -670,13 +670,15 @@ def render_final_result(state: dict[str, Any]) -> None:
         return
 
     winner_names = ", ".join(escape(winner["name"]) for winner in winners)
+    winner_count_text = "1 vencedor" if len(winners) == 1 else f"{len(winners)} vencedores"
+    prize_message = "para o vencedor" if len(winners) == 1 else "para cada vencedor"
     st.markdown(
         (
             '<section class="result-panel result-winners">'
             "<span>Partida finalizada</span>"
-            f"<strong>{len(winners)} vencedor(es)</strong>"
+            f"<strong>{winner_count_text}</strong>"
             f"<p>{winner_names}</p>"
-            f"<em>{format_currency(prize_share)} para cada vencedor</em>"
+            f"<em>{format_currency(prize_share)} {prize_message}</em>"
             "</section>"
         ),
         unsafe_allow_html=True,
