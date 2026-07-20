@@ -280,3 +280,6 @@ npx wrangler secret put SESSION_SECRET
 `SESSION_SECRET` deve ser uma sequencia longa e aleatoria, diferente da senha
 administrativa. Publique com `npm run deploy`. A chave do Supabase nunca deve
 ser colocada em `public/`; o navegador acessa o banco somente pelo Worker.
+
+O Worker de producao se chama `bolaoadega`; esse nome deve ser mantido tambem
+na integracao do repositorio com o Cloudflare Builds.
