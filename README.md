@@ -1,5 +1,9 @@
 # Bolao Adega Camisa 10
 
+> Migracao em andamento: a nova versao em `public/` + `src/worker.js` roda no
+> Cloudflare Workers. A versao Streamlit permanece em `app.py` durante a
+> validacao e pode continuar publicada ate a virada definitiva.
+
 Sistema web para controle de bolao de futebol, desenvolvido com Python,
 Streamlit e Supabase. O projeto foi criado para uma adega com tematica de
 futebol, permitindo que usuarios acompanhem o placar, palpites, historico dos
@@ -243,3 +247,36 @@ Este projeto demonstra:
 - Painel financeiro com controle de pagamentos.
 - Melhor separacao do codigo em modulos.
 - Testes automatizados para regras de vencedores e premio.
+
+## Nova versao Cloudflare
+
+A versao Cloudflare mantem o Supabase existente e substitui a interface e o
+servidor Streamlit:
+
+```text
+public/         HTML, CSS, JavaScript e imagem
+src/worker.js   API, regras do bolao, sessao admin e acesso ao Supabase
+wrangler.jsonc  Configuracao de deploy
+```
+
+Para testar localmente (Node.js 20 ou mais recente):
+
+```powershell
+npm install
+Copy-Item .dev.vars.example .dev.vars
+# preencha .dev.vars com os valores reais
+npm run dev
+```
+
+Para cadastrar os segredos na producao:
+
+```powershell
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_KEY
+npx wrangler secret put BOLAO_ADMIN_PASSWORD
+npx wrangler secret put SESSION_SECRET
+```
+
+`SESSION_SECRET` deve ser uma sequencia longa e aleatoria, diferente da senha
+administrativa. Publique com `npm run deploy`. A chave do Supabase nunca deve
+ser colocada em `public/`; o navegador acessa o banco somente pelo Worker.

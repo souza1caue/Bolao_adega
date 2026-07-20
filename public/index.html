@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071d14">
+  <title>Bolão Adega Camisa 10</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#inicio" aria-label="Adega Camisa 10">
+      <img src="/emblema-adega-camisa10.png" alt="">
+      <span><strong>Adega Camisa 10</strong><small>Bolão da rodada</small></span>
+    </a>
+    <nav>
+      <button class="nav-button active" data-view="inicio">Bolão</button>
+      <button class="nav-button" data-view="historico">Histórico</button>
+      <button class="nav-button" data-view="admin">Admin</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-inicio" class="view active">
+      <div class="hero">
+        <p class="eyebrow">Acompanhe ao vivo</p>
+        <h1>Quem cravou o placar?</h1>
+        <p>Veja o resultado, os palpites e quem ainda está na disputa.</p>
+      </div>
+      <div id="scoreboard" class="scoreboard skeleton"></div>
+      <div id="result-banner"></div>
+      <section class="content-section">
+        <div class="section-heading"><div><p class="eyebrow">Mesa do bolão</p><h2>Participantes</h2></div><span id="last-update"></span></div>
+        <div id="participants" class="participant-grid"></div>
+      </section>
+    </section>
+
+    <section id="view-historico" class="view">
+      <div class="page-heading"><p class="eyebrow">Memória da casa</p><h1>Histórico de bolões</h1></div>
+      <div id="history-list" class="history-list"></div>
+    </section>
+
+    <section id="view-admin" class="view">
+      <div class="page-heading"><p class="eyebrow">Área restrita</p><h1>Administração</h1></div>
+      <div id="login-card" class="panel narrow">
+        <form id="login-form">
+          <label>Senha do administrador<input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="primary" type="submit">Entrar</button>
+        </form>
+      </div>
+      <div id="admin-app" hidden>
+        <div class="admin-toolbar">
+          <div class="admin-tabs">
+            <button class="admin-tab active" data-admin-view="partida">Partida</button>
+            <button class="admin-tab" data-admin-view="participantes">Participantes</button>
+            <button class="admin-tab" data-admin-view="historico">Histórico</button>
+          </div>
+          <button id="logout-button" class="ghost danger">Sair</button>
+        </div>
+
+        <section id="admin-partida" class="admin-view active">
+          <form id="game-form" class="panel">
+            <div class="panel-title"><div><p class="eyebrow">Jogo atual</p><h2>Placar da partida</h2></div><span id="game-status" class="badge"></span></div>
+            <div class="game-form-grid">
+              <label>Time da casa<input name="home_team" maxlength="80" required></label>
+              <label class="score-input">Gols<input name="home_score" type="number" min="0" max="99" required></label>
+              <span class="versus">×</span>
+              <label class="score-input">Gols<input name="away_score" type="number" min="0" max="99" required></label>
+              <label>Time visitante<input name="away_team" maxlength="80" required></label>
+            </div>
+            <div class="actions"><button class="primary" type="submit">Salvar placar</button><button id="finish-button" type="button">Finalizar partida</button><button id="reopen-button" type="button">Reabrir partida</button></div>
+          </form>
+          <div class="panel warning-panel">
+            <div><h3>Iniciar outro bolão</h3><p>Remove os participantes atuais e zera o placar. O histórico permanece salvo.</p></div>
+            <button id="new-pool-button" class="danger">Iniciar novo bolão</button>
+          </div>
+        </section>
+
+        <section id="admin-participantes" class="admin-view">
+          <div class="admin-columns">
+            <div class="panel">
+              <h2>Valor do palpite</h2>
+              <form id="fee-form"><label>Valor em reais<input name="entry_fee" type="number" min="0" step="0.01" required></label><button class="primary" type="submit">Salvar valor</button></form>
+            </div>
+            <div class="panel">
+              <h2>Novo participante</h2>
+              <form id="participant-form">
+                <label>Nome<input name="name" maxlength="80" required></label>
+                <div class="two-columns"><label>Gols da casa<input name="guess_home_score" type="number" min="0" max="99" required></label><label>Gols visitante<input name="guess_away_score" type="number" min="0" max="99" required></label></div>
+                <button class="primary" type="submit">Adicionar participante</button>
+              </form>
+            </div>
+          </div>
+          <div class="panel"><div class="panel-title"><h2>Participantes cadastrados</h2><span id="admin-participant-count" class="badge"></span></div><div id="admin-participants"></div></div>
+        </section>
+
+        <section id="admin-historico" class="admin-view"><div id="admin-history" class="history-list"></div></section>
+      </div>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-message"></p><div class="actions"><button value="cancel">Cancelar</button><button id="confirm-ok" class="danger" value="confirm">Confirmar</button></div></form></dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

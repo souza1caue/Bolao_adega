@@ -1,0 +1,4 @@
+SUPABASE_URL="https://seu-projeto.supabase.co"
+SUPABASE_KEY="sua-chave-secreta-do-supabase"
+BOLAO_ADMIN_PASSWORD="defina-uma-senha-forte"
+SESSION_SECRET="gere-uma-frase-aleatoria-longa"

@@ -6,6 +6,12 @@ __pycache__/
 data/*.json
 !data/.gitkeep
 
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+node_modules/
+.wrangler/
+
 .env
 .venv/
 venv/
