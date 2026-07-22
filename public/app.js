@@ -1,4 +1,4 @@
-const app = { state: null, history: [], authenticated: false, timer: null };
+const app = { state: null, history: [], authenticated: false, timer: null, gameSaveTimer: null, gameSaving: false };
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -40,8 +40,8 @@ function bindForms() {
       event.currentTarget.reset();
       app.authenticated = true;
       showAdmin(true);
-      await loadAdmin();
       toast("Acesso liberado.");
+      await loadAdmin();
     });
   });
   $("#logout-button").addEventListener("click", async () => {
@@ -50,12 +50,43 @@ function bindForms() {
     showAdmin(false);
     toast("Sessão encerrada.");
   });
-  $("#game-form").addEventListener("submit", (event) => submitForm(event, "/api/admin/game", "PUT", "Placar atualizado."));
+  $("#game-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    scheduleGameSave(0);
+  });
+  $("#game-form").addEventListener("change", () => scheduleGameSave(0));
   $("#fee-form").addEventListener("submit", (event) => submitForm(event, "/api/admin/entry-fee", "PUT", "Valor atualizado."));
   $("#participant-form").addEventListener("submit", (event) => submitForm(event, "/api/admin/participants", "POST", "Participante adicionado.", true));
   $("#finish-button").addEventListener("click", () => confirmAction("Finalizar partida?", "O resultado e os vencedores serão gravados no histórico.", async () => mutate("/api/admin/finish", "POST", "Partida finalizada.")));
   $("#reopen-button").addEventListener("click", () => confirmAction("Reabrir partida?", "O registro desta partida será removido do histórico para permitir correções.", async () => mutate("/api/admin/reopen", "POST", "Partida reaberta.")));
   $("#new-pool-button").addEventListener("click", () => confirmAction("Iniciar novo bolão?", "Todos os participantes atuais serão removidos e o placar será zerado.", async () => mutate("/api/admin/new-pool", "POST", "Novo bolão iniciado.", { confirm: true })));
+}
+
+function scheduleGameSave(delay = 350) {
+  clearTimeout(app.gameSaveTimer);
+  app.gameSaveTimer = setTimeout(saveGameAutomatically, delay);
+}
+
+async function saveGameAutomatically() {
+  const form = $("#game-form");
+  if (!form.reportValidity() || app.gameSaving) return;
+  app.gameSaving = true;
+  $("#game-status").textContent = "Salvando...";
+  try {
+    const body = Object.fromEntries(new FormData(form));
+    body.home_score = Number(body.home_score);
+    body.away_score = Number(body.away_score);
+    const result = await api("/api/admin/game", { method: "PUT", body });
+    app.state = result.state;
+    renderPublic();
+    $("#game-status").textContent = result.state.game.finished ? "Finalizada" : "Salvo";
+    toast("Alterações salvas automaticamente.");
+  } catch (error) {
+    $("#game-status").textContent = "Erro ao salvar";
+    toast(error.message, true);
+  } finally {
+    app.gameSaving = false;
+  }
 }
 
 async function submitForm(event, path, method, success, reset = false) {
