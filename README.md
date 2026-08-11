@@ -142,7 +142,7 @@ No Streamlit Cloud ou no arquivo local `.streamlit/secrets.toml`, configure:
 ```toml
 SUPABASE_URL = "https://SEU-PROJETO.supabase.co"
 SUPABASE_KEY = "SUA_SB_SECRET_KEY_OU_LEGACY_SERVICE_ROLE_KEY"
-BOLAO_ADMIN_PASSWORD = "CAMISA10MJHS"
+BOLAO_ADMIN_PASSWORD = "defina-uma-senha-forte"
 ```
 
 Use uma chave `sb_secret_...` da area de API Keys do Supabase ou a chave
@@ -211,8 +211,9 @@ Apos login, o administrador acessa:
 - Historico com exclusao de registros
 - Sair admin
 
-A senha administrativa vem da variavel `BOLAO_ADMIN_PASSWORD`. Se ela nao
-estiver configurada, o app usa a senha fixa padrao `CAMISA10MJHS`.
+A senha administrativa vem exclusivamente da variavel `BOLAO_ADMIN_PASSWORD`.
+Sem essa variavel configurada, o acesso administrativo permanece desabilitado.
+Nunca publique a senha nem a mantenha como valor padrao no codigo.
 
 ## Deploy
 
@@ -283,3 +284,9 @@ ser colocada em `public/`; o navegador acessa o banco somente pelo Worker.
 
 O Worker de producao se chama `bolaoadega`; esse nome deve ser mantido tambem
 na integracao do repositorio com o Cloudflare Builds.
+
+## Autor
+
+Cauê Souza
+LinkedIn: https://www.linkedin.com/in/caue-alves-dados
+GitHub: https://github.com/souza1caue

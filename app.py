@@ -100,7 +100,9 @@ def supabase_enabled() -> bool:
 
 
 def admin_password() -> str:
-    return secret_value("BOLAO_ADMIN_PASSWORD") or "camisa10mjhs"
+    # Sem segredo configurado, o acesso administrativo permanece desabilitado.
+    # Nunca use uma senha fixa como fallback em ambientes publicados.
+    return secret_value("BOLAO_ADMIN_PASSWORD")
 
 
 def supabase_headers(key: str) -> dict[str, str]:
